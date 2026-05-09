@@ -14,6 +14,7 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:ci": "playwright test --grep-invert \"visual snapshot\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "tauri": "tauri",

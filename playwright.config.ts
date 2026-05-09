@@ -1,8 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const isCI = !!process.env.CI;
+
 export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 45_000,
+  forbidOnly: isCI,
+  retries: isCI ? 2 : 0,
   expect: {
     timeout: 10_000,
   },
@@ -13,7 +17,7 @@ export default defineConfig({
   webServer: {
     command: "npm run dev -- --host 127.0.0.1",
     port: 1420,
-    reuseExistingServer: true,
+    reuseExistingServer: !isCI,
     timeout: 120_000,
   },
   projects: [

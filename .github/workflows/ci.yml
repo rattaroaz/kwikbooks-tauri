@@ -5,6 +5,10 @@ on:
     branches: [main, master]
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   node:
     runs-on: ubuntu-latest
@@ -23,13 +27,23 @@ jobs:
       - run: npm run test:coverage
       - run: npm run build
       - run: npx playwright install --with-deps chromium firefox
-      - run: npm run test:e2e
+      # Snapshot baselines are Windows-only (see tests/e2e/*-snapshots); full functional E2E runs here.
+      - run: npm run test:e2e:ci
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-ubuntu
+          path: test-results/
+          retention-days: 5
 
   rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
       - run: cargo test
         working-directory: src-tauri
 
@@ -43,4 +57,12 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
+      - run: npx playwright install chromium firefox
+      - run: npm run test:e2e -- tests/e2e/visual-a11y.spec.ts
       - run: npm run tauri:build -- --debug --no-bundle
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-windows-visual
+          path: test-results/
+          retention-days: 5
