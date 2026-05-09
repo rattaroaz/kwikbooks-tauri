@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { GlobalSearch } from "../components/GlobalSearch";
 import { useToast } from "../context/ToastContext";
 
 const links = [
@@ -51,6 +52,7 @@ export function AppLayout() {
     <div className="kb-shell">
       <aside className="kb-sidebar">
         <div className="kb-brand">Kwikbooks</div>
+        <GlobalSearch />
         <nav className="kb-nav">
           {links.map(({ to, label }) => (
             <NavLink

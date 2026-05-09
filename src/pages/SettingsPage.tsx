@@ -7,6 +7,9 @@ import { errorMessage } from "../types/errors";
 import { createScopedLogger } from "../lib/logger";
 
 const SQLITE_FILTER = [{ name: "SQLite", extensions: ["sqlite", "db"] }];
+const QB_IMPORT_FILTER = [
+  { name: "QuickBooks export", extensions: ["iif", "csv", "txt"] },
+];
 const log = createScopedLogger("Settings");
 
 export function SettingsPage() {
@@ -46,6 +49,41 @@ export function SettingsPage() {
       await api.dbBackupVacuum(dest);
       void log.info("backup completed (vacuum into)");
       push("success", "Backup saved");
+    } catch (e) {
+      push("error", errorMessage(e));
+    }
+  }
+
+  async function onImportQuickbooks() {
+    try {
+      const picked = await open({
+        title: "Import QuickBooks export",
+        filters: QB_IMPORT_FILTER,
+        multiple: false,
+      });
+      const path =
+        picked === null
+          ? null
+          : Array.isArray(picked)
+            ? picked[0]
+            : picked;
+      if (path === null || path === undefined) {
+        return;
+      }
+      const s = await api.importQuickbooksFile(path);
+      const parts = [
+        `${s.formatDetected.toUpperCase()}`,
+        s.accountsCreated ? `${s.accountsCreated} account(s)` : null,
+        s.customersCreated ? `${s.customersCreated} customer(s)` : null,
+        s.vendorsCreated ? `${s.vendorsCreated} vendor(s)` : null,
+        s.itemsCreated ? `${s.itemsCreated} item(s)` : null,
+        s.rowsSkipped ? `${s.rowsSkipped} row(s) skipped` : null,
+      ].filter(Boolean);
+      void log.info("quickbooks import completed");
+      push("success", `Imported: ${parts.join(" · ")}`);
+      if (s.warnings.length > 0) {
+        push("info", s.warnings.slice(0, 5).join(" "));
+      }
     } catch (e) {
       push("error", errorMessage(e));
     }
@@ -143,6 +181,25 @@ export function SettingsPage() {
         </label>
         <button type="submit">Save</button>
       </form>
+
+      <section className="kb-settings-extra">
+        <h2>Import from QuickBooks</h2>
+        <p className="kb-muted">
+          Bring over lists from QuickBooks Desktop exports: tab-separated{" "}
+          <code>.iif</code> (chart of accounts, customers, vendors, items) or{" "}
+          <code>.csv</code> / tab-delimited text from lists and reports. Existing
+          rows with the same account code or name are skipped.
+        </p>
+        <div className="kb-actions">
+          <button
+            type="button"
+            className="kb-button-secondary"
+            onClick={() => void onImportQuickbooks()}
+          >
+            Choose export file…
+          </button>
+        </div>
+      </section>
 
       <section className="kb-settings-extra">
         <h2>Backup &amp; restore</h2>

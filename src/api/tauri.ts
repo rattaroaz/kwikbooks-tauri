@@ -18,6 +18,39 @@ export async function dbRestoreApply(sourcePath: string) {
   return invoke<void>("db_restore_apply", { sourcePath });
 }
 
+/** QuickBooks list import (IIF / CSV exports) */
+export type QuickbooksImportSummary = {
+  formatDetected: string;
+  accountsCreated: number;
+  customersCreated: number;
+  vendorsCreated: number;
+  itemsCreated: number;
+  rowsSkipped: number;
+  warnings: string[];
+};
+
+export async function importQuickbooksFile(path: string) {
+  return invoke<QuickbooksImportSummary>("import_quickbooks_file", { path });
+}
+
+/** Global search (accounts, contacts, documents, journals, payments, …) */
+export type SearchHit = {
+  kind: string;
+  id: number;
+  title: string;
+  subtitle?: string | null;
+  path: string;
+};
+
+export type GlobalSearchResponse = {
+  query: string;
+  hits: SearchHit[];
+};
+
+export async function globalSearch(query: string, limit?: number) {
+  return invoke<GlobalSearchResponse>("global_search", { query, limit });
+}
+
 export type JsonObject = Record<string, unknown>;
 
 /** Accounts */

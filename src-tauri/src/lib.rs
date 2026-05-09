@@ -158,6 +158,8 @@ pub fn run() {
             commands::list_journals,
             commands::get_invoice,
             commands::get_bill,
+            commands::import_quickbooks_file,
+            commands::global_search,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
