@@ -1,0 +1,158 @@
+import { FormEvent, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import * as api from "../api/tauri";
+import { todayISODate } from "../lib/dates";
+import { parseMinorInt } from "../lib/money";
+import { useToast } from "../context/ToastContext";
+import { errorMessage } from "../types/errors";
+import { createScopedLogger } from "../lib/logger";
+
+type Vendor = { id: number; displayName: string };
+type AccountRow = {
+  id: number;
+  code: string;
+  name: string;
+  accountType: string;
+};
+
+const log = createScopedLogger("BillNew");
+
+export function BillNewPage() {
+  const nav = useNavigate();
+  const { push } = useToast();
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [expenseAccounts, setExpenseAccounts] = useState<AccountRow[]>([]);
+  const [vendorId, setVendorId] = useState<number | "">("");
+  const [payeeName, setPayeeName] = useState("");
+  const [number, setNumber] = useState("");
+  const [issueDate, setIssueDate] = useState(todayISODate());
+  const [desc, setDesc] = useState("Expense");
+  const [amountStr, setAmountStr] = useState("0");
+  const [expenseId, setExpenseId] = useState<number>(0);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [v, accts] = await Promise.all([
+          api.listVendors(),
+          api.accountList({ accountType: "expense", activeOnly: true }),
+        ]);
+        setVendors(v as Vendor[]);
+        const exp = (accts as AccountRow[]).filter((a) => a.accountType === "expense");
+        setExpenseAccounts(exp);
+        const first = exp[0];
+        if (first) {
+          setExpenseId(first.id);
+        }
+      } catch (e) {
+        push("error", errorMessage(e));
+      }
+    })();
+  }, [push]);
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (expenseId === 0) {
+      push("error", "No expense account available — check Chart of accounts.");
+      return;
+    }
+    try {
+      const amountMinor = parseMinorInt(amountStr);
+      const id = await api.billCreate({
+        vendorId:
+          vendorId === "" ? undefined : vendorId,
+        payeeName: payeeName.trim() || undefined,
+        number: number.trim(),
+        issueDate,
+        lines: [
+          {
+            description: desc.trim() || "Line",
+            amountMinor,
+            expenseAccountId: expenseId,
+          },
+        ],
+      });
+      void log.info(`draft bill created id=${id}`);
+      push("success", "Bill created (draft)");
+      nav(`/bills/${id}`);
+    } catch (err) {
+      push("error", errorMessage(err));
+    }
+  }
+
+  return (
+    <div className="kb-page">
+      <h1>New bill</h1>
+      <form className="kb-form kb-form-stack" onSubmit={onSubmit}>
+        <label>
+          Vendor (optional)
+          <select
+            value={vendorId === "" ? "" : vendorId}
+            onChange={(e) =>
+              setVendorId(
+                e.currentTarget.value === ""
+                  ? ""
+                  : Number(e.currentTarget.value),
+              )
+            }
+          >
+            <option value="">—</option>
+            {vendors.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Payee name (if no vendor)
+          <input
+            value={payeeName}
+            onChange={(e) => setPayeeName(e.target.value)}
+          />
+        </label>
+        <label>
+          Bill #
+          <input
+            value={number}
+            onChange={(e) => setNumber(e.currentTarget.value)}
+            required
+          />
+        </label>
+        <label>
+          Issue date
+          <input
+            value={issueDate}
+            onChange={(e) => setIssueDate(e.currentTarget.value)}
+            required
+          />
+        </label>
+        <label>
+          Expense account
+          <select
+            value={expenseId || ""}
+            onChange={(e) => setExpenseId(Number(e.currentTarget.value))}
+          >
+            {expenseAccounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.code} — {a.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Description
+          <input value={desc} onChange={(e) => setDesc(e.target.value)} />
+        </label>
+        <label>
+          Amount (minor units)
+          <input
+            value={amountStr}
+            onChange={(e) => setAmountStr(e.target.value)}
+          />
+        </label>
+        <button type="submit">Save draft</button>
+      </form>
+    </div>
+  );
+}

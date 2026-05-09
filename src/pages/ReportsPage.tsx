@@ -1,0 +1,368 @@
+import { useState } from "react";
+import * as api from "../api/tauri";
+import type { JsonObject } from "../api/tauri";
+import { downloadTextFile, rowsToCsv } from "../lib/csv";
+import { todayISODate } from "../lib/dates";
+import { formatMoneyMinor, sumMinor } from "../lib/money";
+import { useToast } from "../context/ToastContext";
+import { errorMessage } from "../types/errors";
+
+type Tab = "pl" | "bs" | "tb" | "ar";
+
+export function ReportsPage() {
+  const { push } = useToast();
+  const [tab, setTab] = useState<Tab>("pl");
+  const [from, setFrom] = useState(todayISODate());
+  const [to, setTo] = useState(todayISODate());
+  const [asOf, setAsOf] = useState(todayISODate());
+  const [pl, setPl] = useState<JsonObject | null>(null);
+  const [bs, setBs] = useState<JsonObject | null>(null);
+  const [tb, setTb] = useState<unknown[] | null>(null);
+  const [ar, setAr] = useState<unknown[] | null>(null);
+
+  async function loadPl() {
+    try {
+      const r = await api.reportProfitLoss(from, to);
+      setPl(r);
+      push("success", "Profit & loss loaded");
+    } catch (e) {
+      push("error", errorMessage(e));
+    }
+  }
+
+  async function loadBs() {
+    try {
+      const r = await api.reportBalanceSheet(asOf);
+      setBs(r);
+      push("success", "Balance sheet loaded");
+    } catch (e) {
+      push("error", errorMessage(e));
+    }
+  }
+
+  async function loadTb() {
+    try {
+      const r = await api.reportTrialBalance(from, to);
+      setTb(r);
+      push("success", "Trial balance loaded");
+    } catch (e) {
+      push("error", errorMessage(e));
+    }
+  }
+
+  async function loadAr() {
+    try {
+      const r = await api.reportArOpen();
+      setAr(r);
+      push("success", "AR summary loaded");
+    } catch (e) {
+      push("error", errorMessage(e));
+    }
+  }
+
+  function csvPl() {
+    if (!pl) {
+      return;
+    }
+    const income = (pl.incomeLines as JsonObject[]) ?? [];
+    const expense = (pl.expenseLines as JsonObject[]) ?? [];
+    const rows: string[][] = [
+      ["section", "code", "name", "amountMinor"],
+      ...income.map((x) => [
+        "income",
+        String(x.code ?? ""),
+        String(x.name ?? ""),
+        String(x.amountMinor ?? ""),
+      ]),
+      ...expense.map((x) => [
+        "expense",
+        String(x.code ?? ""),
+        String(x.name ?? ""),
+        String(x.amountMinor ?? ""),
+      ]),
+      [
+        "total",
+        "",
+        "netIncomeMinor",
+        String(pl.netIncomeMinor ?? ""),
+      ],
+    ];
+    downloadTextFile(
+      `profit-loss_${from}_${to}.csv`,
+      rowsToCsv(rows),
+      "text/csv;charset=utf-8",
+    );
+  }
+
+  function csvBs() {
+    if (!bs) {
+      return;
+    }
+    const rows: string[][] = [["section", "code", "name", "balanceMinor"]];
+    for (const sec of ["assets", "liabilities", "equity"] as const) {
+      const lines = (bs[sec] as JsonObject[]) ?? [];
+      for (const x of lines) {
+        rows.push([
+          sec,
+          String(x.code ?? ""),
+          String(x.name ?? ""),
+          String(x.balanceMinor ?? ""),
+        ]);
+      }
+    }
+    downloadTextFile(
+      `balance-sheet_${asOf}.csv`,
+      rowsToCsv(rows),
+      "text/csv;charset=utf-8",
+    );
+  }
+
+  function csvTb() {
+    if (!tb) {
+      return;
+    }
+    const rows: string[][] = [
+      ["code", "name", "accountType", "debitMinor", "creditMinor", "netMinor"],
+    ];
+    for (const x of tb as JsonObject[]) {
+      rows.push([
+        String(x.code ?? ""),
+        String(x.name ?? ""),
+        String(x.accountType ?? ""),
+        String(x.debitMinor ?? ""),
+        String(x.creditMinor ?? ""),
+        String(x.netMinor ?? ""),
+      ]);
+    }
+    downloadTextFile(
+      `trial-balance_${from}_${to}.csv`,
+      rowsToCsv(rows),
+      "text/csv;charset=utf-8",
+    );
+  }
+
+  function csvAr() {
+    if (!ar) {
+      return;
+    }
+    const rows: string[][] = [["customerId", "displayName", "openMinor"]];
+    for (const x of ar as JsonObject[]) {
+      rows.push([
+        String(x.customerId ?? ""),
+        String(x.displayName ?? ""),
+        String(x.openMinor ?? ""),
+      ]);
+    }
+    downloadTextFile(
+      `ar-open_${todayISODate()}.csv`,
+      rowsToCsv(rows),
+      "text/csv;charset=utf-8",
+    );
+  }
+
+  return (
+    <div className="kb-page">
+      <h1>Reports</h1>
+      <p className="kb-muted">
+        Dates are ISO <code>YYYY-MM-DD</code>. Amounts in sheets are{" "}
+        <strong>minor units</strong> (e.g. cents); UI formats display currency only.
+      </p>
+      <div className="kb-tabs">
+        {(
+          [
+            ["pl", "P / L"],
+            ["bs", "Balance sheet"],
+            ["tb", "Trial balance"],
+            ["ar", "AR summary"],
+          ] as const
+        ).map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            className={tab === k ? "kb-tab kb-tab-active" : "kb-tab"}
+            onClick={() => setTab(k)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "pl" && (
+        <section className="kb-report">
+          <div className="kb-row">
+            <label>
+              From
+              <input value={from} onChange={(e) => setFrom(e.target.value)} />
+            </label>
+            <label>
+              To
+              <input value={to} onChange={(e) => setTo(e.target.value)} />
+            </label>
+            <button type="button" onClick={() => void loadPl()}>
+              Run
+            </button>
+            <button type="button" onClick={csvPl} disabled={!pl}>
+              Export CSV
+            </button>
+          </div>
+          {pl && (
+            <div className="kb-report-body">
+              <h3>Income</h3>
+              <table className="kb-table">
+                <tbody>
+                  {((pl.incomeLines as JsonObject[]) ?? []).map((x, i) => (
+                    <tr key={i}>
+                      <td>{String(x.code)}</td>
+                      <td>{String(x.name)}</td>
+                      <td>{formatMoneyMinor(Number(x.amountMinor))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <h3>Expenses</h3>
+              <table className="kb-table">
+                <tbody>
+                  {((pl.expenseLines as JsonObject[]) ?? []).map((x, i) => (
+                    <tr key={i}>
+                      <td>{String(x.code)}</td>
+                      <td>{String(x.name)}</td>
+                      <td>{formatMoneyMinor(Number(x.amountMinor))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p>
+                <strong>Net income:</strong>{" "}
+                {formatMoneyMinor(Number(pl.netIncomeMinor ?? 0))}
+              </p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === "bs" && (
+        <section className="kb-report">
+          <div className="kb-row">
+            <label>
+              As of
+              <input value={asOf} onChange={(e) => setAsOf(e.target.value)} />
+            </label>
+            <button type="button" onClick={() => void loadBs()}>
+              Run
+            </button>
+            <button type="button" onClick={csvBs} disabled={!bs}>
+              Export CSV
+            </button>
+          </div>
+          {bs && (
+            <div className="kb-report-body">
+              {(["assets", "liabilities", "equity"] as const).map((sec) => (
+                <div key={sec}>
+                  <h3>{sec}</h3>
+                  <table className="kb-table">
+                    <tbody>
+                      {((bs[sec] as JsonObject[]) ?? []).map((x, i) => (
+                        <tr key={i}>
+                          <td>{String(x.code)}</td>
+                          <td>{String(x.name)}</td>
+                          <td>{formatMoneyMinor(Number(x.balanceMinor))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === "tb" && (
+        <section className="kb-report">
+          <div className="kb-row">
+            <label>
+              From
+              <input value={from} onChange={(e) => setFrom(e.target.value)} />
+            </label>
+            <label>
+              To
+              <input value={to} onChange={(e) => setTo(e.target.value)} />
+            </label>
+            <button type="button" onClick={() => void loadTb()}>
+              Run
+            </button>
+            <button type="button" onClick={csvTb} disabled={!tb}>
+              Export CSV
+            </button>
+          </div>
+          {tb && (
+            <table className="kb-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Debit</th>
+                  <th>Credit</th>
+                  <th>Net</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(tb as JsonObject[]).map((x, i) => (
+                  <tr key={i}>
+                    <td>{String(x.code)}</td>
+                    <td>{String(x.name)}</td>
+                    <td>{String(x.accountType)}</td>
+                    <td>{formatMoneyMinor(Number(x.debitMinor))}</td>
+                    <td>{formatMoneyMinor(Number(x.creditMinor))}</td>
+                    <td>{formatMoneyMinor(Number(x.netMinor))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {tb && (
+            <p className="kb-muted">
+              Check: debits − credits net across TB should reflect activity (
+              {formatMoneyMinor(
+                sumMinor(
+                  (tb as JsonObject[]).map((x) => Number(x.netMinor ?? 0)),
+                ),
+              )}{" "}
+              raw net sum of netMinor — informational)
+            </p>
+          )}
+        </section>
+      )}
+
+      {tab === "ar" && (
+        <section className="kb-report">
+          <button type="button" onClick={() => void loadAr()}>
+            Load AR (sent invoices)
+          </button>
+          <button type="button" onClick={csvAr} disabled={!ar}>
+            Export CSV
+          </button>
+          {ar && (
+            <table className="kb-table">
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Open</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(ar as JsonObject[]).map((x, i) => (
+                  <tr key={i}>
+                    <td>{String(x.displayName)}</td>
+                    <td>{formatMoneyMinor(Number(x.openMinor))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
