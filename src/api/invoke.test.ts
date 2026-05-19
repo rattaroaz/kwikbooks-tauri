@@ -19,7 +19,9 @@ describe("invoke wrapper", () => {
     invokeCoreMock.mockReset();
     debugMock.mockReset();
     warnMock.mockReset();
-    invokeCoreMock.mockResolvedValue(42);
+    invokeCoreMock.mockImplementation((cmd: string) =>
+      cmd === "ipc_context_set" ? Promise.resolve() : Promise.resolve(42),
+    );
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
@@ -32,7 +34,12 @@ describe("invoke wrapper", () => {
     vi.stubEnv("VITE_VERBOSE_IPC", "false");
     vi.stubEnv("VITE_SLOW_IPC_MS", "60000");
     vi.resetModules();
-    invokeCoreMock.mockRejectedValueOnce(new Error("x".repeat(600)));
+    invokeCoreMock.mockImplementation((cmd: string) => {
+      if (cmd === "ipc_context_set") {
+        return Promise.resolve();
+      }
+      return Promise.reject(new Error("x".repeat(600)));
+    });
     const { invoke } = await import("./invoke");
     await expect(invoke("fail_cmd")).rejects.toThrow();
     expect(warnMock).toHaveBeenCalledTimes(1);
@@ -48,12 +55,14 @@ describe("invoke wrapper", () => {
     vi.stubEnv("VITE_VERBOSE_IPC", "false");
     vi.stubEnv("VITE_SLOW_IPC_MS", "15");
     vi.resetModules();
-    invokeCoreMock.mockImplementation(
-      () =>
-        new Promise<number>((resolve) => {
-          setTimeout(() => resolve(1), 40);
-        }),
-    );
+    invokeCoreMock.mockImplementation((cmd: string) => {
+      if (cmd === "ipc_context_set") {
+        return Promise.resolve();
+      }
+      return new Promise<number>((resolve) => {
+        setTimeout(() => resolve(1), 40);
+      });
+    });
     const { invoke } = await import("./invoke");
     await invoke("slow_cmd");
     expect(warnMock).toHaveBeenCalled();

@@ -24,6 +24,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      - run: npm run format:check
       - run: npm run test:coverage
       - run: npm run build
       - run: npx playwright install --with-deps chromium firefox
@@ -62,6 +63,8 @@ jobs:
         with:
           workspaces: src-tauri
       - run: cargo test
+        working-directory: src-tauri
+      - run: cargo clippy -- -D warnings
         working-directory: src-tauri
 
   tauri_smoke:

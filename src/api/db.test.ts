@@ -8,6 +8,10 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 import { dbInit, dbMigrate, healthPing } from "./db";
 
+function ipcCommandCalls(): unknown[][] {
+  return invokeMock.mock.calls.filter((c) => c[0] !== "ipc_context_set");
+}
+
 describe("db command wrappers", () => {
   beforeEach(() => {
     invokeMock.mockReset();
@@ -18,8 +22,9 @@ describe("db command wrappers", () => {
     await dbInit();
     await dbMigrate();
     await healthPing();
-    expect(invokeMock).toHaveBeenNthCalledWith(1, "db_init");
-    expect(invokeMock).toHaveBeenNthCalledWith(2, "db_migrate");
-    expect(invokeMock).toHaveBeenNthCalledWith(3, "health_ping");
+    const calls = ipcCommandCalls();
+    expect(calls[0]).toEqual(["db_init"]);
+    expect(calls[1]).toEqual(["db_migrate"]);
+    expect(calls[2]).toEqual(["health_ping"]);
   });
 });

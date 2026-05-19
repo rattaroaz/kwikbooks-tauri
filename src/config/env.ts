@@ -19,10 +19,6 @@ export const env = {
   isDev: import.meta.env.DEV,
   isProd: import.meta.env.PROD,
   mode: import.meta.env.MODE,
-  /** Dev-only extras; override with `VITE_ENABLE_DEVTOOLS=false` in `.env`. */
-  enableDevTools:
-    import.meta.env.DEV &&
-    parseBool(import.meta.env.VITE_ENABLE_DEVTOOLS, true),
   /**
    * No backend is wired for v1. When `false` (default), `captureException` is a no-op.
    */

@@ -249,7 +249,7 @@ pub(crate) fn parse_money_minor(s: &str) -> Option<i64> {
     }
     let parts: Vec<&str> = t.split('.').collect();
     let whole: i64 = parts.first()?.parse().ok()?;
-    let frac = parts.get(1).map(|f| *f).unwrap_or("0");
+    let frac = parts.get(1).copied().unwrap_or("0");
     let frac_s: String = frac.chars().take(2).collect();
     let frac_s = format!("{frac_s:0<2}");
     let frac_n: i64 = frac_s.parse().ok()?;

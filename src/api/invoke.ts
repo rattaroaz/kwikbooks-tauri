@@ -13,12 +13,21 @@ function truncateErr(message: string): string {
   return `${message.slice(0, ERR_LOG_MAX)}…`;
 }
 
+async function setIpcContext(rid: string): Promise<void> {
+  try {
+    await tauriInvoke("ipc_context_set", { requestId: rid });
+  } catch {
+    /* Web / Vitest / early boot without IPC */
+  }
+}
+
 /** Every Tauri IPC call: optional verbose timing + warn on failure + slow-call warnings. */
 export async function invoke<T>(
   cmd: string,
   args?: Record<string, unknown>,
 ): Promise<T> {
   const rid = createRequestId();
+  await setIpcContext(rid);
   const start = performance.now();
   const threshold = env.slowIpcMs;
 
@@ -49,9 +58,7 @@ export async function invoke<T>(
   } catch (e) {
     const ms = Math.round(performance.now() - start);
     const msg = truncateErr(e instanceof Error ? e.message : String(e));
-    await warn(
-      `[ipc←] rid=${rid} ${cmd} err ${ms}ms ${msg}`,
-    );
+    await warn(`[ipc←] rid=${rid} ${cmd} err ${ms}ms ${msg}`);
     throw e;
   }
 }

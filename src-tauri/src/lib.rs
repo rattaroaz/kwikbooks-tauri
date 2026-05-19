@@ -1,10 +1,9 @@
 mod commands;
 mod db;
 mod domain;
+mod ipc_context;
 mod ipc_log;
 mod logging;
-#[allow(dead_code)]
-mod secrets_stub;
 
 use crate::ipc_log::timed_ipc;
 use db::{
@@ -120,6 +119,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            ipc_context::ipc_context_set,
             db_init,
             db_migrate,
             health_ping,

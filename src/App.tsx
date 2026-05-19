@@ -19,6 +19,8 @@ import { ReportsPage } from "./pages/ReportsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { VendorsPage } from "./pages/VendorsPage";
 import { WelcomePage } from "./pages/WelcomePage";
+import { ReceivePaymentPage } from "./pages/ReceivePaymentPage";
+import { PayBillPage } from "./pages/PayBillPage";
 import { errorMessage } from "./types/errors";
 import "./App.css";
 
@@ -109,6 +111,8 @@ export default function App() {
             <Route path="/bills" element={<BillsPage />} />
             <Route path="/bills/new" element={<BillNewPage />} />
             <Route path="/bills/:id" element={<BillDetailPage />} />
+            <Route path="/payments/receive" element={<ReceivePaymentPage />} />
+            <Route path="/payments/pay" element={<PayBillPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/settings" element={<SettingsPage />} />

@@ -26,7 +26,16 @@ pub fn max_level_from_env() -> LevelFilter {
         };
     }
     // Support plain level tokens; ignore full `RUST_LOG` module specs for now.
-    match key.split(',').next().unwrap_or(key).split('=').last().unwrap_or(key).trim().to_ascii_lowercase().as_str()
+    match key
+        .split(',')
+        .next()
+        .unwrap_or(key)
+        .split('=')
+        .next_back()
+        .unwrap_or(key)
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
     {
         "trace" => LevelFilter::Trace,
         "debug" => LevelFilter::Debug,
@@ -53,7 +62,7 @@ fn json_logs_enabled() -> bool {
 pub fn log_plugin<R: Runtime>() -> TauriPlugin<R> {
     let mut b = Builder::new()
         .level(max_level_from_env())
-        .rotation_strategy(RotationStrategy::KeepAll)
+        .rotation_strategy(RotationStrategy::KeepOne)
         .max_file_size(5_242_880)
         .level_for("tao", LevelFilter::Warn)
         .level_for("tauri", LevelFilter::Warn)

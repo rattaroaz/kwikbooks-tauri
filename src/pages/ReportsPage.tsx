@@ -7,7 +7,9 @@ import { formatMoneyMinor, sumMinor } from "../lib/money";
 import { useToast } from "../context/ToastContext";
 import { errorMessage } from "../types/errors";
 
-type Tab = "pl" | "bs" | "tb" | "ar";
+type Tab = "pl" | "bs" | "tb" | "ar" | "ap" | "gl";
+
+type AccountOption = { id: number; code: string; name: string };
 
 export function ReportsPage() {
   const { push } = useToast();
@@ -19,6 +21,10 @@ export function ReportsPage() {
   const [bs, setBs] = useState<JsonObject | null>(null);
   const [tb, setTb] = useState<unknown[] | null>(null);
   const [ar, setAr] = useState<unknown[] | null>(null);
+  const [ap, setAp] = useState<unknown[] | null>(null);
+  const [glAccountId, setGlAccountId] = useState<number>(0);
+  const [glAccounts, setGlAccounts] = useState<AccountOption[]>([]);
+  const [gl, setGl] = useState<unknown[] | null>(null);
 
   async function loadPl() {
     try {
@@ -55,6 +61,42 @@ export function ReportsPage() {
       const r = await api.reportArOpen();
       setAr(r);
       push("success", "AR summary loaded");
+    } catch (e) {
+      push("error", errorMessage(e));
+    }
+  }
+
+  async function loadAp() {
+    try {
+      const r = await api.reportApOpen();
+      setAp(r);
+      push("success", "AP summary loaded");
+    } catch (e) {
+      push("error", errorMessage(e));
+    }
+  }
+
+  async function loadGlAccounts() {
+    try {
+      const rows = (await api.accountList({ activeOnly: true })) as AccountOption[];
+      setGlAccounts(rows);
+      if (rows[0] && glAccountId === 0) {
+        setGlAccountId(rows[0].id);
+      }
+    } catch (e) {
+      push("error", errorMessage(e));
+    }
+  }
+
+  async function loadGl() {
+    if (glAccountId === 0) {
+      push("error", "Select an account for the general ledger.");
+      return;
+    }
+    try {
+      const r = await api.reportGeneralLedger(glAccountId, from, to);
+      setGl(r);
+      push("success", "General ledger loaded");
     } catch (e) {
       push("error", errorMessage(e));
     }
@@ -174,6 +216,8 @@ export function ReportsPage() {
             ["bs", "Balance sheet"],
             ["tb", "Trial balance"],
             ["ar", "AR summary"],
+            ["ap", "AP summary"],
+            ["gl", "General ledger"],
           ] as const
         ).map(([k, label]) => (
           <button
@@ -356,6 +400,88 @@ export function ReportsPage() {
                   <tr key={i}>
                     <td>{String(x.displayName)}</td>
                     <td>{formatMoneyMinor(Number(x.openMinor))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
+
+      {tab === "ap" && (
+        <section className="kb-report">
+          <button type="button" onClick={() => void loadAp()}>
+            Load AP (open bills)
+          </button>
+          {ap && (
+            <table className="kb-table">
+              <caption className="kb-sr-only">Accounts payable open balances</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Vendor</th>
+                  <th scope="col">Open</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(ap as JsonObject[]).map((x, i) => (
+                  <tr key={i}>
+                    <td>{String(x.displayName)}</td>
+                    <td>{formatMoneyMinor(Number(x.openMinor))}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
+
+      {tab === "gl" && (
+        <section className="kb-report">
+          <div className="kb-row">
+            <label>
+              Account
+              <select
+                value={glAccountId || ""}
+                onFocus={() => void loadGlAccounts()}
+                onChange={(e) => setGlAccountId(Number(e.target.value))}
+              >
+                {glAccounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.code} — {a.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              From
+              <input value={from} onChange={(e) => setFrom(e.target.value)} />
+            </label>
+            <label>
+              To
+              <input value={to} onChange={(e) => setTo(e.target.value)} />
+            </label>
+            <button type="button" onClick={() => void loadGl()}>
+              Run
+            </button>
+          </div>
+          {gl && (
+            <table className="kb-table">
+              <caption className="kb-sr-only">General ledger lines</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Date</th>
+                  <th scope="col">Memo</th>
+                  <th scope="col">Debit</th>
+                  <th scope="col">Credit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(gl as JsonObject[]).map((x, i) => (
+                  <tr key={i}>
+                    <td>{String(x.entryDate ?? "")}</td>
+                    <td>{String(x.memo ?? x.description ?? "")}</td>
+                    <td>{formatMoneyMinor(Number(x.debitMinor ?? 0))}</td>
+                    <td>{formatMoneyMinor(Number(x.creditMinor ?? 0))}</td>
                   </tr>
                 ))}
               </tbody>

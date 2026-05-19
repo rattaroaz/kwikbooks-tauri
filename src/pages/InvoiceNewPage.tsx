@@ -4,6 +4,7 @@ import * as api from "../api/tauri";
 import { todayISODate } from "../lib/dates";
 import { parseMinorInt } from "../lib/money";
 import { useToast } from "../context/ToastContext";
+import { requireValidISODate } from "../lib/validateDate";
 import { errorMessage } from "../types/errors";
 import { createScopedLogger } from "../lib/logger";
 
@@ -42,6 +43,11 @@ export function InvoiceNewPage() {
     e.preventDefault();
     if (customerId === 0) {
       push("error", "Add a customer first (Customers page).");
+      return;
+    }
+    const dateErr = requireValidISODate("Issue date", issueDate);
+    if (dateErr) {
+      push("error", dateErr);
       return;
     }
     try {
@@ -99,8 +105,9 @@ export function InvoiceNewPage() {
           />
         </label>
         <label>
-          Issue date (YYYY-MM-DD)
+          Issue date
           <input
+            type="date"
             value={issueDate}
             onChange={(e) => setIssueDate(e.currentTarget.value)}
             required

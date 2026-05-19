@@ -3,13 +3,13 @@ use rusqlite::{Connection, OptionalExtension};
 use crate::db::DbCommandError;
 use crate::domain::constants::COMPANY_ID;
 use crate::domain::ids::{account_exists, account_id_by_code};
-use crate::domain::inventory::allow_sale_without_inventory_check;
 use crate::domain::journal::{insert_journal, DraftJournalLine};
 
 fn line_total_minor(qty: f64, unit_minor: i64) -> i64 {
     ((qty * unit_minor as f64).round() as i64).max(0)
 }
 
+#[allow(clippy::type_complexity)]
 pub fn post_invoice(conn: &mut Connection, invoice_id: i64) -> Result<i64, DbCommandError> {
     let row: Option<(String, Option<i64>, i64, i64, i64, i64, String)> = conn
         .query_row(
@@ -73,12 +73,7 @@ pub fn post_invoice(conn: &mut Connection, invoice_id: i64) -> Result<i64, DbCom
         let mut sum_lines: i64 = 0;
         let mut collected = Vec::new();
         for row in lines_iter {
-            let (num, desc, qty, unit_p, line_tot, inc_acc, item_id) = row?;
-            if !allow_sale_without_inventory_check(item_id) {
-                return Err(DbCommandError::Invariant {
-                    message: "inventory rules blocked posting".into(),
-                });
-            }
+            let (num, desc, qty, unit_p, line_tot, inc_acc, _item_id) = row?;
             let computed = line_total_minor(qty, unit_p);
             if computed != line_tot {
                 return Err(DbCommandError::Validation {

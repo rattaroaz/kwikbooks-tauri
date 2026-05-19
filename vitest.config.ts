@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     setupFiles: ["./vitest.setup.ts"],
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],

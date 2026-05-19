@@ -11,6 +11,8 @@ const links = [
   { to: "/vendors", label: "Vendors" },
   { to: "/invoices", label: "Invoices" },
   { to: "/bills", label: "Bills" },
+  { to: "/payments/receive", label: "Receive payment" },
+  { to: "/payments/pay", label: "Pay vendor" },
   { to: "/register", label: "Journal register" },
   { to: "/reports", label: "Reports" },
   { to: "/settings", label: "Settings" },
@@ -69,7 +71,12 @@ export function AppLayout() {
         </nav>
       </aside>
       <div className="kb-main">
-        <Outlet />
+        <a href="#kb-main-content" className="kb-skip-link">
+          Skip to content
+        </a>
+        <div id="kb-main-content">
+          <Outlet />
+        </div>
       </div>
       <div className="kb-toasts" aria-live="polite">
         {toasts.map((t) => (

@@ -65,8 +65,9 @@ export function WelcomePage() {
         </ol>
       </div>
       <p className="kb-hint kb-muted">
-        Shortcuts: Alt+1 dashboard · Alt+2 chart of accounts · Alt+3 customers ·
-        Alt+9 settings · Alt+0 this page
+        Keyboard (Alt+digit): 1 dashboard · 2 accounts · 3 customers · 4 vendors
+        · 5 invoices · 6 bills · 7 register · 8 reports · 9 settings · 0 this
+        page. Receive payment and pay vendor are in the sidebar.
       </p>
       <Link to="/" className="kb-inline-link">
         Back to Dashboard

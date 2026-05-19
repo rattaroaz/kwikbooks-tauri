@@ -578,6 +578,43 @@ button[type="submit"]:hover {
   font-size: 0.78rem;
 }
 
+.kb-h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.75rem;
+}
+
+.kb-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.kb-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.5rem 0.75rem;
+  background: #2d3a55;
+  color: #fff;
+  border-radius: 4px;
+}
+
+.kb-skip-link:focus {
+  left: 0.5rem;
+  top: 0.5rem;
+}
+
+.kb-error-text {
+  color: #f5a8a8;
+}
+
 @media (max-width: 720px) {
   .kb-shell {
     flex-direction: column;

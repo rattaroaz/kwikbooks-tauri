@@ -4,6 +4,7 @@ import * as api from "../api/tauri";
 import { todayISODate } from "../lib/dates";
 import { parseMinorInt } from "../lib/money";
 import { useToast } from "../context/ToastContext";
+import { requireValidISODate } from "../lib/validateDate";
 import { errorMessage } from "../types/errors";
 import { createScopedLogger } from "../lib/logger";
 
@@ -54,6 +55,11 @@ export function BillNewPage() {
     e.preventDefault();
     if (expenseId === 0) {
       push("error", "No expense account available — check Chart of accounts.");
+      return;
+    }
+    const dateErr = requireValidISODate("Issue date", issueDate);
+    if (dateErr) {
+      push("error", dateErr);
       return;
     }
     try {
@@ -122,6 +128,7 @@ export function BillNewPage() {
         <label>
           Issue date
           <input
+            type="date"
             value={issueDate}
             onChange={(e) => setIssueDate(e.currentTarget.value)}
             required
