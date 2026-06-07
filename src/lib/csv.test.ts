@@ -25,7 +25,10 @@ describe("rowsToCsv", () => {
   });
 
   it("applies CSV escaping per cell", () => {
-    const out = rowsToCsv([["name", "note"], ["ACME", "hello,\"world\""]]);
+    const out = rowsToCsv([
+      ["name", "note"],
+      ["ACME", 'hello,"world"'],
+    ]);
     expect(out).toBe('name,note\r\nACME,"hello,""world"""');
   });
 });
@@ -44,7 +47,11 @@ describe("downloadTextFile", () => {
 
   it("creates an anchor, clicks, and revokes object URL", () => {
     const click = vi.fn();
-    const anchor = { href: "", download: "", click } as unknown as HTMLAnchorElement;
+    const anchor = {
+      href: "",
+      download: "",
+      click,
+    } as unknown as HTMLAnchorElement;
     const createElement = vi.fn(() => anchor);
     Object.assign(globalThis, {
       document: { createElement } as unknown as Document,

@@ -39,7 +39,9 @@ export function BillNewPage() {
           api.accountList({ accountType: "expense", activeOnly: true }),
         ]);
         setVendors(v as Vendor[]);
-        const exp = (accts as AccountRow[]).filter((a) => a.accountType === "expense");
+        const exp = (accts as AccountRow[]).filter(
+          (a) => a.accountType === "expense",
+        );
         setExpenseAccounts(exp);
         const first = exp[0];
         if (first) {
@@ -65,8 +67,7 @@ export function BillNewPage() {
     try {
       const amountMinor = parseMinorInt(amountStr);
       const id = await api.billCreate({
-        vendorId:
-          vendorId === "" ? undefined : vendorId,
+        vendorId: vendorId === "" ? undefined : vendorId,
         payeeName: payeeName.trim() || undefined,
         number: number.trim(),
         issueDate,

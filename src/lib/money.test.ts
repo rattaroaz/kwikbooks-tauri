@@ -67,10 +67,15 @@ describe("sumMinor (property)", () => {
   it("never overflows on safe inputs and matches naive sum", () => {
     fc.assert(
       fc.property(
-        fc.array(fc.integer({ min: -1_000_000, max: 1_000_000 }), { maxLength: 50 }),
+        fc.array(fc.integer({ min: -1_000_000, max: 1_000_000 }), {
+          maxLength: 50,
+        }),
         (arr) => {
           const expected = arr.reduce((a, b) => a + b, 0);
-          if (expected > Number.MAX_SAFE_INTEGER || expected < Number.MIN_SAFE_INTEGER) {
+          if (
+            expected > Number.MAX_SAFE_INTEGER ||
+            expected < Number.MIN_SAFE_INTEGER
+          ) {
             expect(() => sumMinor(arr)).toThrow(/overflow/);
           } else {
             expect(sumMinor(arr)).toBe(expected);

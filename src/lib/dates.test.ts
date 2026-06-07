@@ -39,7 +39,9 @@ describe("isValidISODate (property)", () => {
           const result = isValidISODate(s);
           const dt = new Date(Date.UTC(y, m - 1, d));
           const isReal =
-            dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+            dt.getUTCFullYear() === y &&
+            dt.getUTCMonth() === m - 1 &&
+            dt.getUTCDate() === d;
           expect(result).toBe(isReal);
         },
       ),

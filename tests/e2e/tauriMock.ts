@@ -4,7 +4,12 @@ export async function installTauriMock(page: Page): Promise<void> {
   await page.addInitScript(() => {
     type Customer = { id: number; displayName: string };
     type Vendor = { id: number; displayName: string };
-    type Account = { id: number; code: string; name: string; accountType: string };
+    type Account = {
+      id: number;
+      code: string;
+      name: string;
+      accountType: string;
+    };
     type Invoice = {
       id: number;
       customerId: number;
@@ -75,9 +80,16 @@ export async function installTauriMock(page: Page): Promise<void> {
       }
       switch (command) {
         case "db_init":
-          return Promise.resolve({ dbPath: "mock.sqlite", migrationVersion: 4 });
+          return Promise.resolve({
+            dbPath: "mock.sqlite",
+            migrationVersion: 4,
+          });
         case "health_ping":
-          return Promise.resolve({ ok: true, sqliteOk: true, migrationVersion: 4 });
+          return Promise.resolve({
+            ok: true,
+            sqliteOk: true,
+            migrationVersion: 4,
+          });
         case "company_get":
           return Promise.resolve({ ...state.company });
         case "company_update":
@@ -104,7 +116,8 @@ export async function installTauriMock(page: Page): Promise<void> {
           const tax = Number(input.taxMinor ?? 0);
           const customerId = Number(input.customerId);
           const customerName =
-            state.customers.find((c) => c.id === customerId)?.displayName ?? "Unknown";
+            state.customers.find((c) => c.id === customerId)?.displayName ??
+            "Unknown";
           state.invoices.push({
             id,
             customerId,
@@ -158,7 +171,10 @@ export async function installTauriMock(page: Page): Promise<void> {
           const input = args.input as Record<string, unknown>;
           const id = state.nextBillId++;
           const lines = (input.lines as Array<Record<string, unknown>>) ?? [];
-          const total = lines.reduce((acc, l) => acc + Number(l.amountMinor ?? 0), 0);
+          const total = lines.reduce(
+            (acc, l) => acc + Number(l.amountMinor ?? 0),
+            0,
+          );
           const vendorId =
             input.vendorId === undefined || input.vendorId === null
               ? null
@@ -166,7 +182,8 @@ export async function installTauriMock(page: Page): Promise<void> {
           const vendorName =
             vendorId === null
               ? null
-              : (state.vendors.find((v) => v.id === vendorId)?.displayName ?? null);
+              : (state.vendors.find((v) => v.id === vendorId)?.displayName ??
+                null);
           state.bills.push({
             id,
             vendorId,

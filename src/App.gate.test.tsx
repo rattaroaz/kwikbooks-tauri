@@ -25,6 +25,8 @@ describe("TauriGate", () => {
         </ToastProvider>
       </MemoryRouter>,
     );
-    expect(screen.getByRole("heading", { name: /open the desktop app/i })).toBeDefined();
+    expect(
+      screen.getByRole("heading", { name: /open the desktop app/i }),
+    ).toBeDefined();
   });
 });

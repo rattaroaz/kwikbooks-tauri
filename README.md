@@ -13,36 +13,36 @@ Do **not** use `npm run dev` alone for real work — that is Vite only; IPC and 
 
 ## Scripts
 
-| Command | Purpose |
-|---------|---------|
-| `npm run typecheck` | TypeScript |
-| `npm run lint` | ESLint |
-| `npm run test` | Vitest (unit + property) |
-| `npm run test:coverage` | Vitest with coverage thresholds |
-| `npm run test:e2e` | Playwright (Chromium + Firefox) |
-| `npm run test:e2e:ci` | E2E without visual snapshots (Linux CI) |
-| `npm run format:check` | Prettier |
-| `cd src-tauri && cargo test` | Rust unit/integration tests |
-| `cd src-tauri && cargo clippy -- -D warnings` | Rust lints |
+| Command                                       | Purpose                                 |
+| --------------------------------------------- | --------------------------------------- |
+| `npm run typecheck`                           | TypeScript                              |
+| `npm run lint`                                | ESLint                                  |
+| `npm run test`                                | Vitest (unit + property)                |
+| `npm run test:coverage`                       | Vitest with coverage thresholds         |
+| `npm run test:e2e`                            | Playwright (Chromium + Firefox)         |
+| `npm run test:e2e:ci`                         | E2E without visual snapshots (Linux CI) |
+| `npm run format:check`                        | Prettier                                |
+| `cd src-tauri && cargo test`                  | Rust unit/integration tests             |
+| `cd src-tauri && cargo clippy -- -D warnings` | Rust lints                              |
 
 ## Environment
 
 Copy [`.env.example`](.env.example) to `.env` or `.env.local` for Vite overrides.
 
-| Variable | Default | Meaning |
-|----------|---------|---------|
-| `VITE_VERBOSE_IPC` | on in dev | Log each IPC call (redacted args) |
-| `VITE_LOG_CONSOLE_FORWARD` | on in dev | Forward `console.*` to host logs |
-| `VITE_SLOW_IPC_MS` | `1500` | Warn when IPC exceeds this (ms) |
-| `VITE_TELEMETRY` | off | Reserved; no remote telemetry in v1 |
+| Variable                   | Default   | Meaning                             |
+| -------------------------- | --------- | ----------------------------------- |
+| `VITE_VERBOSE_IPC`         | on in dev | Log each IPC call (redacted args)   |
+| `VITE_LOG_CONSOLE_FORWARD` | on in dev | Forward `console.*` to host logs    |
+| `VITE_SLOW_IPC_MS`         | `1500`    | Warn when IPC exceeds this (ms)     |
+| `VITE_TELEMETRY`           | off       | Reserved; no remote telemetry in v1 |
 
 Host (Rust) logging:
 
-| Variable | Meaning |
-|----------|---------|
-| `KWIKBOOKS_LOG` / `RUST_LOG` | Log level (`debug`, `info`, …) |
-| `KWIKBOOKS_LOG_JSON` | `1` for JSON lines |
-| `KWIKBOOKS_SLOW_MS` | Slow invoke threshold on the host |
+| Variable                     | Meaning                           |
+| ---------------------------- | --------------------------------- |
+| `KWIKBOOKS_LOG` / `RUST_LOG` | Log level (`debug`, `info`, …)    |
+| `KWIKBOOKS_LOG_JSON`         | `1` for JSON lines                |
+| `KWIKBOOKS_SLOW_MS`          | Slow invoke threshold on the host |
 
 ## Logs & backups
 

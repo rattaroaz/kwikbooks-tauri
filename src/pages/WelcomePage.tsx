@@ -50,8 +50,8 @@ export function WelcomePage() {
           <li>
             <strong>First sale / purchase</strong>
             <p className="kb-muted">
-              Create drafts, mark invoices sent before posting GL, bills as open,
-              then post from the detail screen.
+              Create drafts, mark invoices sent before posting GL, bills as
+              open, then post from the detail screen.
             </p>
             <div className="kb-onboarding-actions">
               <Link to="/invoices/new" className="kb-button-secondary">

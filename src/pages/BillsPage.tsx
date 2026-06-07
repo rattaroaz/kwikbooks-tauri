@@ -54,8 +54,8 @@ export function BillsPage() {
         <div className="kb-empty">
           <p>No bills yet.</p>
           <p className="kb-muted">
-            Bills can tie to vendors or standalone payees. Posting requires status{" "}
-            <strong>open</strong>.
+            Bills can tie to vendors or standalone payees. Posting requires
+            status <strong>open</strong>.
           </p>
           <Link className="kb-button" to="/bills/new">
             Create bill

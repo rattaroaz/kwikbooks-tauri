@@ -5,12 +5,16 @@ test.beforeEach(async ({ page }) => {
   await installTauriMock(page);
 });
 
-test("invoice new surfaces backend create failure as toast", async ({ page }) => {
+test("invoice new surfaces backend create failure as toast", async ({
+  page,
+}) => {
   await page.goto("/invoices/new");
   await page.evaluate(() => {
     const controls = (
       window as Window & {
-        __E2E_MOCK__?: { setCommandError: (cmd: string, msg: string | null) => void };
+        __E2E_MOCK__?: {
+          setCommandError: (cmd: string, msg: string | null) => void;
+        };
       }
     ).__E2E_MOCK__;
     controls?.setCommandError("invoice_create", "mock invoice create failure");
@@ -45,10 +49,15 @@ test("restore validate failure is surfaced as toast", async ({ page }) => {
   await page.evaluate(() => {
     const controls = (
       window as Window & {
-        __E2E_MOCK__?: { setCommandError: (cmd: string, msg: string | null) => void };
+        __E2E_MOCK__?: {
+          setCommandError: (cmd: string, msg: string | null) => void;
+        };
       }
     ).__E2E_MOCK__;
-    controls?.setCommandError("db_restore_validate", "mock restore validation failure");
+    controls?.setCommandError(
+      "db_restore_validate",
+      "mock restore validation failure",
+    );
   });
   await page.getByRole("button", { name: "Restore from backup…" }).click();
 

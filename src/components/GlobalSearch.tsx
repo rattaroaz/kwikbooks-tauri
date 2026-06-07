@@ -141,7 +141,9 @@ export function GlobalSearch() {
                   role="option"
                   onClick={() => onPick(h)}
                 >
-                  <span className="kb-search-hit-kind">{kindLabel(h.kind)}</span>
+                  <span className="kb-search-hit-kind">
+                    {kindLabel(h.kind)}
+                  </span>
                   <span className="kb-search-hit-title">{h.title}</span>
                   {h.subtitle ? (
                     <span className="kb-search-hit-sub">{h.subtitle}</span>
@@ -151,8 +153,8 @@ export function GlobalSearch() {
             ))}
           </ul>
           <p className="kb-search-hint kb-muted">
-            Tip: search matches text in names, numbers, memos, line descriptions, and payment
-            amounts. Press Esc to close.
+            Tip: search matches text in names, numbers, memos, line
+            descriptions, and payment amounts. Press Esc to close.
           </p>
         </div>
       </div>,

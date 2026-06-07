@@ -124,14 +124,24 @@ export function AccountsPage() {
     <div className="kb-page">
       <h1>Chart of accounts</h1>
       <form className="kb-form kb-form-stack" onSubmit={onSubmit}>
-        <h2 className="kb-h2">{editingId === null ? "Add account" : "Edit account"}</h2>
+        <h2 className="kb-h2">
+          {editingId === null ? "Add account" : "Edit account"}
+        </h2>
         <label>
           Code
-          <input value={code} onChange={(e) => setCode(e.target.value)} required />
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            required
+          />
         </label>
         <label>
           Name
-          <input value={name} onChange={(e) => setName(e.target.value)} required />
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
         </label>
         <label>
           Type
@@ -171,9 +181,7 @@ export function AccountsPage() {
         <input
           type="checkbox"
           checked={filter.activeOnly}
-          onChange={(e) =>
-            setFilter({ activeOnly: e.currentTarget.checked })
-          }
+          onChange={(e) => setFilter({ activeOnly: e.currentTarget.checked })}
         />{" "}
         Active only
       </label>

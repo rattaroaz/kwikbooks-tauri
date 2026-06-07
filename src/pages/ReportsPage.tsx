@@ -78,7 +78,9 @@ export function ReportsPage() {
 
   async function loadGlAccounts() {
     try {
-      const rows = (await api.accountList({ activeOnly: true })) as AccountOption[];
+      const rows = (await api.accountList({
+        activeOnly: true,
+      })) as AccountOption[];
       setGlAccounts(rows);
       if (rows[0] && glAccountId === 0) {
         setGlAccountId(rows[0].id);
@@ -122,12 +124,7 @@ export function ReportsPage() {
         String(x.name ?? ""),
         String(x.amountMinor ?? ""),
       ]),
-      [
-        "total",
-        "",
-        "netIncomeMinor",
-        String(pl.netIncomeMinor ?? ""),
-      ],
+      ["total", "", "netIncomeMinor", String(pl.netIncomeMinor ?? "")],
     ];
     downloadTextFile(
       `profit-loss_${from}_${to}.csv`,
@@ -207,7 +204,8 @@ export function ReportsPage() {
       <h1>Reports</h1>
       <p className="kb-muted">
         Dates are ISO <code>YYYY-MM-DD</code>. Amounts in sheets are{" "}
-        <strong>minor units</strong> (e.g. cents); UI formats display currency only.
+        <strong>minor units</strong> (e.g. cents); UI formats display currency
+        only.
       </p>
       <div className="kb-tabs">
         {(
@@ -415,7 +413,9 @@ export function ReportsPage() {
           </button>
           {ap && (
             <table className="kb-table">
-              <caption className="kb-sr-only">Accounts payable open balances</caption>
+              <caption className="kb-sr-only">
+                Accounts payable open balances
+              </caption>
               <thead>
                 <tr>
                   <th scope="col">Vendor</th>

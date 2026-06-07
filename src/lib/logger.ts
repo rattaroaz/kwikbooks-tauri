@@ -38,7 +38,9 @@ function wireConsoleToHost(log: typeof import("@tauri-apps/plugin-log")): void {
     fnName: "log" | "debug" | "info" | "warn" | "error",
     emit: (message: string) => Promise<void>,
   ): void => {
-    const original = console[fnName].bind(console) as (...args: unknown[]) => void;
+    const original = console[fnName].bind(console) as (
+      ...args: unknown[]
+    ) => void;
     console[fnName] = (...args: unknown[]) => {
       original(...args);
       const message = args.map(stringifyArg).join(" ");

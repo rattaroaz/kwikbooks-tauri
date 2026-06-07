@@ -80,7 +80,10 @@ describe("tauri API contract wrappers", () => {
     const calls = ipcCommandCalls();
     expect(calls[0]).toEqual(["account_get", { id: 10 }]);
     expect(calls[1]).toEqual(["account_create", { input: payload }]);
-    expect(calls[2]).toEqual(["account_update", { input: { id: 10, ...payload } }]);
+    expect(calls[2]).toEqual([
+      "account_update",
+      { input: { id: 10, ...payload } },
+    ]);
     expect(calls[3]).toEqual(["account_deactivate", { id: 10 }]);
     expect(calls[4]).toEqual(["company_get"]);
     expect(calls[5]).toEqual(["company_update", { input: { name: "Acme" } }]);
@@ -111,8 +114,14 @@ describe("tauri API contract wrappers", () => {
     expect(calls[1]).toEqual(["vendor_create", { input: vendor }]);
     expect(calls[2]).toEqual(["invoice_create", { input: inv }]);
     expect(calls[3]).toEqual(["bill_create", { input: bill }]);
-    expect(calls[4]).toEqual(["customer_payment_create", { input: customerPayment }]);
-    expect(calls[5]).toEqual(["vendor_payment_create", { input: vendorPayment }]);
+    expect(calls[4]).toEqual([
+      "customer_payment_create",
+      { input: customerPayment },
+    ]);
+    expect(calls[5]).toEqual([
+      "vendor_payment_create",
+      { input: vendorPayment },
+    ]);
   });
 
   it("sends posting/lifecycle/report args in camelCase", async () => {
@@ -133,8 +142,14 @@ describe("tauri API contract wrappers", () => {
     expect(calls[1]).toEqual(["bill_post", { billId: 8 }]);
     expect(calls[2]).toEqual(["customer_payment_post", { paymentId: 9 }]);
     expect(calls[3]).toEqual(["vendor_payment_post", { paymentId: 10 }]);
-    expect(calls[4]).toEqual(["invoice_set_status", { invoiceId: 7, status: "sent" }]);
-    expect(calls[5]).toEqual(["bill_set_status", { billId: 8, status: "open" }]);
+    expect(calls[4]).toEqual([
+      "invoice_set_status",
+      { invoiceId: 7, status: "sent" },
+    ]);
+    expect(calls[5]).toEqual([
+      "bill_set_status",
+      { billId: 8, status: "open" },
+    ]);
     expect(calls[6]).toEqual([
       "report_trial_balance",
       { dateFrom: "2026-01-01", dateTo: "2026-01-31" },
@@ -149,7 +164,10 @@ describe("tauri API contract wrappers", () => {
       "report_profit_loss",
       { dateFrom: "2026-01-01", dateTo: "2026-01-31" },
     ]);
-    expect(calls[11]).toEqual(["report_balance_sheet", { asOfDate: "2026-01-31" }]);
+    expect(calls[11]).toEqual([
+      "report_balance_sheet",
+      { asOfDate: "2026-01-31" },
+    ]);
   });
 
   it("uses backup/restore command names and keys", async () => {

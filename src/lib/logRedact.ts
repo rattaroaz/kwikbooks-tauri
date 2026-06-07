@@ -27,7 +27,10 @@ function keyLooksSensitive(key: string): boolean {
 }
 
 /** Returns a deep clone with sensitive string/primitive fields replaced by `[redacted]`. */
-export function redactForLog(value: unknown, seen = new WeakSet<object>()): unknown {
+export function redactForLog(
+  value: unknown,
+  seen = new WeakSet<object>(),
+): unknown {
   if (value === null || value === undefined) {
     return value;
   }

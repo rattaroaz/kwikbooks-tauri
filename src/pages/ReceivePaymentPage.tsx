@@ -94,8 +94,8 @@ export function ReceivePaymentPage() {
     <div className="kb-page">
       <h1>Receive payment</h1>
       <p className="kb-muted">
-        Records a customer payment and posts it to the general ledger (bank debit,
-        AR credit).
+        Records a customer payment and posts it to the general ledger (bank
+        debit, AR credit).
       </p>
       {banks.length === 0 && (
         <p className="kb-error-text">

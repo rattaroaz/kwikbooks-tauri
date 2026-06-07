@@ -62,11 +62,7 @@ export function SettingsPage() {
         multiple: false,
       });
       const path =
-        picked === null
-          ? null
-          : Array.isArray(picked)
-            ? picked[0]
-            : picked;
+        picked === null ? null : Array.isArray(picked) ? picked[0] : picked;
       if (path === null || path === undefined) {
         return;
       }
@@ -97,11 +93,7 @@ export function SettingsPage() {
         multiple: false,
       });
       const path =
-        picked === null
-          ? null
-          : Array.isArray(picked)
-            ? picked[0]
-            : picked;
+        picked === null ? null : Array.isArray(picked) ? picked[0] : picked;
       if (path === null || path === undefined) {
         return;
       }
@@ -145,8 +137,8 @@ export function SettingsPage() {
     <div className="kb-page">
       <h1>Settings</h1>
       <p className="kb-muted">
-        Single-company file · numbering hints for new documents (automation can be
-        wired later).
+        Single-company file · numbering hints for new documents (automation can
+        be wired later).
       </p>
       <form className="kb-form kb-form-stack" onSubmit={onSubmit}>
         <label>
@@ -155,7 +147,10 @@ export function SettingsPage() {
         </label>
         <label>
           Legal name
-          <input value={legalName} onChange={(e) => setLegalName(e.target.value)} />
+          <input
+            value={legalName}
+            onChange={(e) => setLegalName(e.target.value)}
+          />
         </label>
         <label>
           Fiscal year starts (month 1–12)
@@ -169,7 +164,10 @@ export function SettingsPage() {
         </label>
         <label>
           Base currency (ISO code)
-          <input value={currency} onChange={(e) => setCurrency(e.target.value)} />
+          <input
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+          />
         </label>
         <label>
           Next invoice # (suggested)
@@ -177,7 +175,10 @@ export function SettingsPage() {
         </label>
         <label>
           Next bill # (suggested)
-          <input value={nextBill} onChange={(e) => setNextBill(e.target.value)} />
+          <input
+            value={nextBill}
+            onChange={(e) => setNextBill(e.target.value)}
+          />
         </label>
         <button type="submit">Save</button>
       </form>
@@ -187,8 +188,8 @@ export function SettingsPage() {
         <p className="kb-muted">
           Bring over lists from QuickBooks Desktop exports: tab-separated{" "}
           <code>.iif</code> (chart of accounts, customers, vendors, items) or{" "}
-          <code>.csv</code> / tab-delimited text from lists and reports. Existing
-          rows with the same account code or name are skipped.
+          <code>.csv</code> / tab-delimited text from lists and reports.
+          Existing rows with the same account code or name are skipped.
         </p>
         <div className="kb-actions">
           <button
@@ -209,10 +210,18 @@ export function SettingsPage() {
           you see fit.
         </p>
         <div className="kb-actions">
-          <button type="button" className="kb-button-secondary" onClick={onBackup}>
+          <button
+            type="button"
+            className="kb-button-secondary"
+            onClick={onBackup}
+          >
             Backup to file…
           </button>
-          <button type="button" className="kb-button-secondary" onClick={onRestore}>
+          <button
+            type="button"
+            className="kb-button-secondary"
+            onClick={onRestore}
+          >
             Restore from backup…
           </button>
         </div>

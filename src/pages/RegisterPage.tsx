@@ -32,8 +32,8 @@ export function RegisterPage() {
     <div className="kb-page">
       <h1>Journal register</h1>
       <p className="kb-muted">
-        Recent journals (newest first). Source links tie back to invoices, bills,
-        or payments.
+        Recent journals (newest first). Source links tie back to invoices,
+        bills, or payments.
       </p>
       <table className="kb-table">
         <thead>

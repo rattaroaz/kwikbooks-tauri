@@ -47,8 +47,7 @@ export function BillDetailPage() {
       </p>
       <h1>Bill {String(h.number ?? "")}</h1>
       <p className="kb-muted">
-        Status: {status} · Total:{" "}
-        {formatMoneyMinor(Number(h.totalMinor ?? 0))}
+        Status: {status} · Total: {formatMoneyMinor(Number(h.totalMinor ?? 0))}
       </p>
       <div className="kb-actions">
         {status === "draft" && (

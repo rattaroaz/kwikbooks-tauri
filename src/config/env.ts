@@ -26,10 +26,7 @@ export const env = {
   /**
    * Log each IPC call timing/detail via `@tauri-apps/plugin-log` (default: on in dev, off in prod).
    */
-  verboseIpc: parseBool(
-    import.meta.env.VITE_VERBOSE_IPC,
-    import.meta.env.DEV,
-  ),
+  verboseIpc: parseBool(import.meta.env.VITE_VERBOSE_IPC, import.meta.env.DEV),
   /**
    * Forward browser `console.*` to the host log pipeline (default: on in dev, off in prod).
    * Disable in release builds to avoid leaking arbitrary console payloads into log files.

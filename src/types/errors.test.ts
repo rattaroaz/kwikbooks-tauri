@@ -51,8 +51,8 @@ describe("formatAppCommandError", () => {
 
 describe("errorMessage", () => {
   it("uses structured formatter when possible", () => {
-    expect(
-      errorMessage({ code: "validation", message: "bad date" }),
-    ).toBe("bad date");
+    expect(errorMessage({ code: "validation", message: "bad date" })).toBe(
+      "bad date",
+    );
   });
 });

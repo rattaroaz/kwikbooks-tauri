@@ -5,7 +5,9 @@ test.beforeEach(async ({ page }) => {
   await installTauriMock(page);
 });
 
-test("dashboard survives transient IPC failure after reload", async ({ page }) => {
+test("dashboard survives transient IPC failure after reload", async ({
+  page,
+}) => {
   await page.goto("/");
   await page.evaluate(() => {
     const controls = (
@@ -38,7 +40,9 @@ test("dashboard survives transient IPC failure after reload", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 });
 
-test("invoice status action retries after IPC error clears", async ({ page }) => {
+test("invoice status action retries after IPC error clears", async ({
+  page,
+}) => {
   await page.goto("/invoices/new");
   await page.getByLabel("Invoice #").fill("INV-CHAOS-1");
   await page.getByRole("button", { name: "Save draft" }).click();
@@ -85,7 +89,10 @@ test("backup action recovers from transient IPC failure", async ({ page }) => {
         };
       }
     ).__E2E_MOCK__;
-    controls?.setCommandError("db_backup_vacuum", "mock transient backup failure");
+    controls?.setCommandError(
+      "db_backup_vacuum",
+      "mock transient backup failure",
+    );
   });
   await page.getByRole("button", { name: "Backup to file…" }).click();
   await expect(page.getByText("mock transient backup failure")).toBeVisible();

@@ -14,7 +14,10 @@ describe("isValidISODate (property)", () => {
           const result = isValidISODate(s);
           // If the date is impossible (e.g. Feb 30), result must be false
           const dt = new Date(Date.UTC(y, m - 1, d));
-          const isReal = dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+          const isReal =
+            dt.getUTCFullYear() === y &&
+            dt.getUTCMonth() === m - 1 &&
+            dt.getUTCDate() === d;
           expect(result).toBe(isReal);
         },
       ),
