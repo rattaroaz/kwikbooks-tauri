@@ -817,6 +817,11 @@ the full implementation (src/services/updateService.ts in this repo).
   - allowDowngrades: false prevents malicious/downgrade feeds from older releases
     being forced; combined with semver guard on the TypeScript side.
   - GITHUB_TOKEN in Actions is standard for uploading release assets.
+  - release.yml must grant `permissions: contents: write` so tauri-action can
+    create GitHub releases. Without it: "Resource not accessible by integration"
+    when creating the release. If org policy restricts default token permissions,
+    also set repo Settings → Actions → General → Workflow permissions →
+    "Read and write permissions".
 
 ================================================================================
 END OF DOCUMENT — version of reference implementation: app release 1.2.1
