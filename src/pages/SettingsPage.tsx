@@ -5,6 +5,7 @@ import type { JsonObject } from "../api/tauri";
 import { useToast } from "../context/ToastContext";
 import { createScopedLogger } from "../lib/logger";
 import { APP_VERSION } from "../lib/constants";
+import { useLogViewer } from "../context/LogViewerContext";
 import { checkForUpdatesAndApply } from "../services/updateService";
 
 const SQLITE_FILTER = [{ name: "SQLite", extensions: ["sqlite", "db"] }];
@@ -15,6 +16,7 @@ const log = createScopedLogger("Settings");
 
 export function SettingsPage() {
   const { push, pushApiError } = useToast();
+  const { openLogs } = useLogViewer();
   const [name, setName] = useState("");
   const [legalName, setLegalName] = useState("");
   const [fiscalMonth, setFiscalMonth] = useState("1");
@@ -220,6 +222,24 @@ export function SettingsPage() {
             onClick={() => void checkForUpdatesAndApply()}
           >
             Check for updates
+          </button>
+        </div>
+      </section>
+
+      <section className="kb-settings-extra">
+        <h2>Diagnostics</h2>
+        <p className="kb-muted">
+          View recent application and webview log entries written by Kwikbooks on
+          this computer.
+        </p>
+        <div className="kb-actions">
+          <button
+            type="button"
+            className="kb-button-secondary"
+            data-testid="settings-view-logs"
+            onClick={() => void openLogs()}
+          >
+            View logs
           </button>
         </div>
       </section>

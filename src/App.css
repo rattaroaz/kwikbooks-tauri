@@ -639,6 +639,143 @@ button[type="submit"]:hover {
   font-size: 1.15rem;
 }
 
+.kb-logs-panel {
+  flex: 0 0 420px;
+  width: 420px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #1a1d26;
+  border-left: 1px solid #2a3040;
+}
+
+.kb-logs-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1rem 0.75rem;
+  border-bottom: 1px solid #2a3040;
+}
+
+.kb-logs-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.kb-logs-dir {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
+.kb-logs-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.kb-logs-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid #2a3040;
+}
+
+.kb-logs-level-field {
+  font-size: 0.8rem;
+  color: #9aa0b4;
+  white-space: nowrap;
+}
+
+.kb-logs-level-select {
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #3a4156;
+  background: #1f232e;
+  color: #e8e8ec;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.kb-logs-error {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.88rem;
+  color: #e8a0a0;
+  border-bottom: 1px solid #2a3040;
+}
+
+.kb-logs-body {
+  flex: 1;
+  min-height: 0;
+  padding: 0.5rem 0;
+  overflow: auto;
+  font-family: Consolas, "Cascadia Mono", "Segoe UI Mono", monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #d8dbe8;
+  background: #12141a;
+}
+
+.kb-logs-line {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.2rem 1rem;
+  word-break: break-word;
+}
+
+.kb-logs-line:hover {
+  background: #1a1d26;
+}
+
+.kb-logs-level-tag {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  align-self: flex-start;
+}
+
+.kb-logs-level-tag-trace {
+  color: #a8a8c8;
+  background: #2a2a3a;
+}
+
+.kb-logs-level-tag-debug {
+  color: #8ab4d8;
+  background: #243040;
+}
+
+.kb-logs-level-tag-info {
+  color: #8ad8a8;
+  background: #243528;
+}
+
+.kb-logs-level-tag-warn {
+  color: #e8c878;
+  background: #3a3420;
+}
+
+.kb-logs-level-tag-error {
+  color: #e8a0a0;
+  background: #3a2424;
+}
+
+.kb-logs-level-tag-unknown {
+  color: #9aa0b4;
+  background: #2a3040;
+}
+
+.kb-logs-line-text {
+  white-space: pre-wrap;
+}
+
 @media (max-width: 720px) {
   .kb-shell {
     flex-direction: column;

@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { GlobalSearch } from "../components/GlobalSearch";
+import { LogViewerPanel } from "../components/LogViewerPanel";
+import { useLogViewer } from "../context/LogViewerContext";
 import { useToast } from "../context/ToastContext";
 
 const links = [
@@ -21,6 +23,7 @@ const links = [
 export function AppLayout() {
   const navigate = useNavigate();
   const { toasts, dismiss } = useToast();
+  const { open: logsOpen, closeLogs } = useLogViewer();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -78,6 +81,7 @@ export function AppLayout() {
           <Outlet />
         </div>
       </div>
+      {logsOpen ? <LogViewerPanel onClose={closeLogs} /> : null}
       <div className="kb-toasts" aria-live="polite">
         {toasts.map((t) => (
           <div

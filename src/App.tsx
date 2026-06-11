@@ -23,6 +23,7 @@ import { ReceivePaymentPage } from "./pages/ReceivePaymentPage";
 import { PayBillPage } from "./pages/PayBillPage";
 import { UpdateDialog } from "./components/UpdateDialog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { LogViewerProvider } from "./context/LogViewerContext";
 import { errorMessage } from "./types/errors";
 import "./App.css";
 
@@ -112,30 +113,32 @@ export default function App() {
       <UpdateDialog />
       <DbGate>
         <ErrorBoundary>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/accounts" element={<AccountsPage />} />
-              <Route path="/customers" element={<CustomersPage />} />
-              <Route path="/vendors" element={<VendorsPage />} />
-              <Route path="/invoices" element={<InvoicesPage />} />
-              <Route path="/invoices/new" element={<InvoiceNewPage />} />
-              <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
-              <Route path="/bills" element={<BillsPage />} />
-              <Route path="/bills/new" element={<BillNewPage />} />
-              <Route path="/bills/:id" element={<BillDetailPage />} />
-              <Route
-                path="/payments/receive"
-                element={<ReceivePaymentPage />}
-              />
-              <Route path="/payments/pay" element={<PayBillPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/welcome" element={<WelcomePage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Route>
-          </Routes>
+          <LogViewerProvider>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/accounts" element={<AccountsPage />} />
+                <Route path="/customers" element={<CustomersPage />} />
+                <Route path="/vendors" element={<VendorsPage />} />
+                <Route path="/invoices" element={<InvoicesPage />} />
+                <Route path="/invoices/new" element={<InvoiceNewPage />} />
+                <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+                <Route path="/bills" element={<BillsPage />} />
+                <Route path="/bills/new" element={<BillNewPage />} />
+                <Route path="/bills/:id" element={<BillDetailPage />} />
+                <Route
+                  path="/payments/receive"
+                  element={<ReceivePaymentPage />}
+                />
+                <Route path="/payments/pay" element={<PayBillPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/welcome" element={<WelcomePage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            </Routes>
+          </LogViewerProvider>
         </ErrorBoundary>
       </DbGate>
     </TauriGate>

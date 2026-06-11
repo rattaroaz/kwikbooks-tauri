@@ -198,3 +198,19 @@ export async function reportProfitLoss(dateFrom: string, dateTo: string) {
 export async function reportBalanceSheet(asOfDate: string) {
   return invoke<JsonObject>("report_balance_sheet", { asOfDate });
 }
+
+/** Recent native + webview log lines from the OS log directory. */
+export type LogLine = {
+  source: string;
+  level: string;
+  line: string;
+};
+
+export type LogsReadResponse = {
+  logDir: string;
+  lines: LogLine[];
+};
+
+export async function logsRead(maxLines?: number) {
+  return invoke<LogsReadResponse>("logs_read", { maxLines });
+}

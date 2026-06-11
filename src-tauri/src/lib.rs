@@ -163,6 +163,7 @@ pub fn run() {
             commands::get_bill,
             commands::import_quickbooks_file,
             commands::global_search,
+            commands::logs_read,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

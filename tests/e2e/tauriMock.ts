@@ -369,6 +369,22 @@ export async function installTauriMock(page: Page): Promise<void> {
           ]);
         case "global_search":
           return Promise.resolve({ query: String(args.query ?? ""), hits: [] });
+        case "logs_read":
+          return Promise.resolve({
+            logDir: "C:\\Mock\\Kwikbooks\\logs",
+            lines: [
+              {
+                source: "app",
+                level: "info",
+                line: "[2026-01-01][12:00:00][INFO] Kwikbooks starting",
+              },
+              {
+                source: "webview",
+                level: "warn",
+                line: "[2026-01-01][12:00:01][WARN] [Settings] check started",
+              },
+            ],
+          });
         case "db_backup_vacuum":
           state.backupPath = String(args.destinationPath ?? state.backupPath);
           return Promise.resolve();
