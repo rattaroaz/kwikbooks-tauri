@@ -29,16 +29,27 @@ jobs:
         run: |
           dism /online /enable-feature /featurename:VBSCRIPT /all /norestart
 
-      - name: Verify signing secrets
+      - name: Normalize signing secrets
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           if (-not $env:TAURI_SIGNING_PRIVATE_KEY) { throw "TAURI_SIGNING_PRIVATE_KEY secret is not set" }
-          if (-not $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) { Write-Warning "TAURI_SIGNING_PRIVATE_KEY_PASSWORD is empty (ok if key has no password)" }
+          $key = $env:TAURI_SIGNING_PRIVATE_KEY.Trim()
+          $password = if ($null -eq $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) { "" } else { $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD.Trim() }
+          @(
+            "TAURI_SIGNING_PRIVATE_KEY<<EOF",
+            $key,
+            "EOF",
+            "TAURI_SIGNING_PRIVATE_KEY_PASSWORD<<EOF",
+            $password,
+            "EOF"
+          ) | Add-Content -Path $env:GITHUB_ENV -Encoding utf8
 
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
           releaseName: "Kwikbooks ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"

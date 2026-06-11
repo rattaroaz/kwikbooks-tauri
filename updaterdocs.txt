@@ -190,22 +190,80 @@ Tauri updater uses minisign-style keys. The PUBLIC key goes in tauri.conf.json.
 The PRIVATE key signs installers in CI; NEVER commit the private key.
 
 GENERATE (once per app):
-  npm run tauri signer generate -- -w scripts/tauri-signing.key --ci --force
+  ALWAYS pass the password on the command line when using --ci. Without -p, the
+  CLI may generate a random password or prompt in non-CI mode — you will not
+  know what to put in GitHub secrets, and CI will fail with "Wrong password
+  for that key" even if you think you remember the password.
+
+  npm run tauri signer generate -- -w scripts/tauri-signing.key --ci --force -p "YOUR_STRONG_PASSWORD"
+
+  Record the password in a password manager immediately. You cannot recover it
+  from the key file.
 
 This creates:
-  scripts/tauri-signing.key      → PRIVATE (gitignore this)
+  scripts/tauri-signing.key      → PRIVATE (gitignore this; single-line --ci format)
   scripts/tauri-signing.key.pub  → PUBLIC (safe to commit for reference)
 
 Copy the public key content into tauri.conf.json plugins.updater.pubkey.
 The value is a single base64 string (may include newlines when pasted from CLI;
 tauri.conf.json stores it as one line).
 
+THREE-WAY SYNC (critical — mismatch causes CI failure or broken updates):
+  These three MUST always refer to the SAME key pair:
+    1. scripts/tauri-signing.key           (local private key file)
+    2. GitHub secret TAURI_SIGNING_PRIVATE_KEY  (copy of that file's contents)
+    3. plugins.updater.pubkey in tauri.conf.json  (matches .key.pub)
+
+  If you regenerate the key pair, update ALL THREE. Committing a new .pub and
+  pubkey without updating the GitHub secret (or vice versa) produces signature
+  errors at install time or "Wrong password" in CI.
+
+VERIFY KEY + PASSWORD LOCALLY BEFORE ADDING GITHUB SECRETS:
+  Do this immediately after generate. If this fails, fix it before touching
+  GitHub — a failing local test means CI will fail the same way.
+
+  # PowerShell (Windows)
+  echo "test" > scripts/sign-test.txt
+  $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content scripts/tauri-signing.key -Raw
+  $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "YOUR_STRONG_PASSWORD"
+  npm run tauri signer sign -- scripts/sign-test.txt
+  # Success: scripts/sign-test.txt.sig is created. Delete both test files after.
+
+  # Bash (macOS/Linux)
+  echo test > scripts/sign-test.txt
+  export TAURI_SIGNING_PRIVATE_KEY="$(cat scripts/tauri-signing.key)"
+  export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="YOUR_STRONG_PASSWORD"
+  npm run tauri signer sign -- scripts/sign-test.txt
+
+  If you see "Wrong password for that key" locally, the password does not match
+  the key on disk — regenerate with -p or use the correct password. Do NOT assume
+  GitHub secrets are misconfigured until local sign succeeds.
+
 GITHUB ACTIONS SECRETS (required for release workflow):
-  TAURI_SIGNING_PRIVATE_KEY          → full contents of tauri-signing.key
-  TAURI_SIGNING_PRIVATE_KEY_PASSWORD → password chosen at key generation
+  TAURI_SIGNING_PRIVATE_KEY          → full contents of scripts/tauri-signing.key
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD → exact password passed to -p at generation
+
+  How to paste TAURI_SIGNING_PRIVATE_KEY:
+    - Copy the ENTIRE file (one line in --ci format). No quotes, no extra spaces.
+    - PowerShell: Get-Content scripts/tauri-signing.key -Raw | Set-Clipboard
+    - Do NOT paste the .pub file or the pubkey from tauri.conf.json.
+
+  How to paste TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
+    - Exact password, no leading/trailing spaces or newlines.
+    - GitHub → Settings → Secrets often adds a trailing newline when pasted;
+      the release workflow trims whitespace, but verify if problems persist.
 
 If the key is password-protected and the password secret is wrong, CI fails
 with "Wrong password for that key" and NO latest.json is published.
+
+RECOVERY (wrong password / lost password / key out of sync):
+  1. npm run tauri signer generate -- -w scripts/tauri-signing.key --ci --force -p "NEW_PASSWORD"
+  2. Update plugins.updater.pubkey in tauri.conf.json from the new .pub file.
+  3. Commit scripts/tauri-signing.key.pub + tauri.conf.json pubkey change.
+  4. Replace BOTH GitHub secrets (private key file contents + new password).
+  5. Run the local sign test above before re-tagging.
+  Safe only before any signed release is installed by users. After users have
+  a build with the old pubkey embedded, changing keys requires a manual reinstall.
 
 VERIFICATION MODEL
   - latest.json contains per-platform "signature" fields.
@@ -416,12 +474,12 @@ STEPS (in order):
   2. setup-node (v22), npm ci
   3. rust toolchain stable
   4. Enable VBScript Windows capability (required for MSI/WiX on GitHub runners)
-  5. Verify TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+  5. Normalize signing secrets (trim whitespace; write to GITHUB_ENV via EOF
+     delimiters so base64 keys with = characters are not corrupted)
   6. tauri-apps/tauri-action@v0 with:
        env:
          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-         TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-         TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+         # TAURI_SIGNING_* set by step 5 from normalized secrets
        with:
          tagName: github.ref_name or workflow_dispatch input
          releaseName: "Your App Name <tag>"
@@ -559,13 +617,15 @@ PHASE A — PROJECT SETUP
   [ ] Add updater:default and process:default to capabilities
 
 PHASE B — CONFIG
-  [ ] Generate signing key pair (section 7)
-  [ ] Set plugins.updater.pubkey in tauri.conf.json
+  [ ] Generate signing key pair WITH -p password flag (section 7 — do not skip)
+  [ ] Run local sign test (section 7) — must pass before GitHub secrets
+  [ ] Set plugins.updater.pubkey in tauri.conf.json (from .key.pub)
   [ ] Set plugins.updater.endpoints to your GitHub latest.json URL
   [ ] Set bundle.createUpdaterArtifacts: true
   [ ] Set bundle.targets (nsis, msi for Windows)
   [ ] Set windows.installMode: "passive" under plugins.updater if desired
   [ ] Gitignore scripts/tauri-signing.key (private)
+  [ ] Commit scripts/tauri-signing.key.pub (public reference only)
 
 PHASE C — FRONTEND
   [ ] Copy/adapt src/lib/semver.ts + tests
@@ -580,7 +640,9 @@ PHASE C — FRONTEND
 
 PHASE D — CI
   [ ] Copy .github/workflows/release.yml; replace app name and defaults
-  [ ] Add GitHub secrets for signing key + password
+  [ ] Local sign test passed (section 7) — then add GitHub secrets
+  [ ] TAURI_SIGNING_PRIVATE_KEY = full scripts/tauri-signing.key contents
+  [ ] TAURI_SIGNING_PRIVATE_KEY_PASSWORD = same password used with -p at generate
   [ ] Test workflow with a tag push
 
 PHASE E — LOCAL DEV
@@ -629,9 +691,22 @@ SYMPTOM: Error about release JSON / 404 / not found
 CAUSE:   No releases, or release exists without latest.json asset.
 FIX:     Run release workflow with includeUpdaterJson: true; verify asset upload.
 
-SYMPTOM: CI fails "Wrong password for that key"
-CAUSE:   TAURI_SIGNING_PRIVATE_KEY_PASSWORD secret mismatch.
-FIX:     Update GitHub secret to match key generation password.
+SYMPTOM: CI fails "Wrong password for that key" / "incorrect updater private key password"
+CAUSE:   Usually NOT a GitHub glitch. Most common causes (in order):
+           1. Password in GitHub secret does not match the private key on disk
+              (e.g. key regenerated without updating secret, or -p omitted at
+              generate so password was never recorded).
+           2. GitHub TAURI_SIGNING_PRIVATE_KEY is stale — old key, wrong file,
+              or .pub / pubkey pasted instead of the private .key file.
+           3. Trailing newline/space on password secret (less common; workflow
+              trims this — see release.yml Normalize step).
+FIX:     Run the local sign test in section 7 FIRST.
+           - If local test fails → regenerate key with -p, update pubkey, update
+             BOTH GitHub secrets, commit .key.pub + tauri.conf.json pubkey.
+           - If local test passes but CI fails → re-copy private key to GitHub
+             secret (entire single-line file, no quotes); verify password secret.
+         Do NOT repeatedly change the GitHub password secret alone if the local
+         key file rejects that password — the key and password are a pair.
 
 SYMPTOM: CI fails before build — signing secrets not set
 CAUSE:   Missing TAURI_SIGNING_PRIVATE_KEY or PASSWORD in repo secrets.
