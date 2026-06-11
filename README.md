@@ -24,6 +24,8 @@ Do **not** use `npm run dev` alone for real work — that is Vite only; IPC and 
 | `npm run format:check`                        | Prettier                                |
 | `cd src-tauri && cargo test`                  | Rust unit/integration tests             |
 | `cd src-tauri && cargo clippy -- -D warnings` | Rust lints                              |
+| `npm run build:win`                           | Windows installer (unsigned, local dev) |
+| `npm run build:win:signed`                    | Windows installer + updater signatures  |
 
 ## Environment
 
@@ -54,6 +56,28 @@ Host (Rust) logging:
 GitHub Actions runs typecheck, lint, coverage, build, E2E (Ubuntu), `cargo test` + clippy (Ubuntu with GTK/WebKit deps), and a Windows smoke build + visual snapshots.
 
 Visual regression baselines are **Windows** (`tests/e2e/*-snapshots/*-win32.png`).
+
+## Application updates
+
+Updates are **manual only** (Settings → **Check for updates**). The app fetches signed `latest.json` from GitHub Releases; it never checks on startup.
+
+**Installed users:** Help yourself via Settings when a new release exists.
+
+**Publish a release:**
+
+1. Bump version in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` (keep in sync).
+2. Commit and push to `main`.
+3. `git tag vX.Y.Z && git push origin vX.Y.Z`
+4. GitHub Actions **Release** workflow builds NSIS + MSI, uploads `latest.json` and `.sig` files.
+
+**Repository secrets** (required for signed releases):
+
+- `TAURI_SIGNING_PRIVATE_KEY` — contents of `scripts/tauri-signing.key` (never commit this file)
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — empty string if the key has no password
+
+Endpoint: `https://github.com/rattaroaz/kwikbooks-tauri/releases/latest/download/latest.json`
+
+Regenerate keys: `npm run tauri signer generate -- -w scripts/tauri-signing.key --ci --force` (then update `pubkey` in `tauri.conf.json`).
 
 ## Keyboard shortcuts
 

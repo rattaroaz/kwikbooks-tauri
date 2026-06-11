@@ -24,7 +24,7 @@ dist-ssr
 *.sw?
 
 # Rust (Cargo output if invoked from repo root)
-target/
+
 
 # SQLite / local DB artifacts (dev copies; real DB lives in app data dir later)
 *.sqlite
@@ -36,3 +36,6 @@ target/
 # Env overrides (keep `.env.example` tracked)
 .env
 .env.*.local
+
+# Tauri updater signing (public key is tracked at scripts/tauri-signing.key.pub)
+scripts/tauri-signing.key

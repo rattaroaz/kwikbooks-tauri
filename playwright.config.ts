@@ -19,6 +19,10 @@ export default defineConfig({
     port: 1420,
     reuseExistingServer: !isCI,
     timeout: 120_000,
+    env: {
+      ...process.env,
+      VITE_E2E: "true",
+    },
   },
   projects: [
     {

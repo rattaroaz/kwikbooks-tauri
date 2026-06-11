@@ -615,6 +615,30 @@ button[type="submit"]:hover {
   color: #f5a8a8;
 }
 
+.kb-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.kb-modal {
+  max-width: 28rem;
+  padding: 1.25rem 1.5rem;
+  background: #1e2230;
+  border: 1px solid #2a3040;
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.kb-modal h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
 @media (max-width: 720px) {
   .kb-shell {
     flex-direction: column;

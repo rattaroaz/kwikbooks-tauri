@@ -21,13 +21,15 @@ import { VendorsPage } from "./pages/VendorsPage";
 import { WelcomePage } from "./pages/WelcomePage";
 import { ReceivePaymentPage } from "./pages/ReceivePaymentPage";
 import { PayBillPage } from "./pages/PayBillPage";
+import { UpdateDialog } from "./components/UpdateDialog";
 import { errorMessage } from "./types/errors";
 import "./App.css";
 
 const logBoot = createScopedLogger("DbGate");
 
 function TauriGate({ children }: { children: ReactNode }) {
-  if (!isTauri()) {
+  const e2eBypass = import.meta.env.VITE_E2E === "true";
+  if (!isTauri() && !e2eBypass) {
     return (
       <div className="kb-page kb-error-screen">
         <h1>Open the desktop app</h1>
@@ -46,10 +48,14 @@ function TauriGate({ children }: { children: ReactNode }) {
 }
 
 function DbGate({ children }: { children: ReactNode }) {
+  const e2eBypass = import.meta.env.VITE_E2E === "true";
   const [err, setErr] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(e2eBypass);
 
   useEffect(() => {
+    if (e2eBypass) {
+      return;
+    }
     let cancelled = false;
     void (async () => {
       try {
@@ -70,7 +76,11 @@ function DbGate({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [e2eBypass]);
+
+  if (e2eBypass) {
+    return <>{children}</>;
+  }
 
   if (err !== null) {
     return (
@@ -98,6 +108,7 @@ function DbGate({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <TauriGate>
+      <UpdateDialog />
       <DbGate>
         <Routes>
           <Route element={<AppLayout />}>

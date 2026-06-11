@@ -13,6 +13,8 @@ interface ImportMetaEnv {
   readonly VITE_LOG_CONSOLE_FORWARD?: string;
   /** Warn when IPC exceeds this duration in ms (default 1500). */
   readonly VITE_SLOW_IPC_MS?: string;
+  /** Playwright E2E: mock updater and skip Tauri/DB gates. */
+  readonly VITE_E2E?: string;
 }
 
 interface ImportMeta {

@@ -97,10 +97,13 @@ pub fn run() {
         .plugin(logging::log_plugin())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             log::info!(
                 target: "kwikbooks_lib::startup",
-                "Kwikbooks starting (log_level={:?})",
+                "Kwikbooks starting version={} (log_level={:?})",
+                env!("CARGO_PKG_VERSION"),
                 logging::max_level_from_env()
             );
             let handle = app.handle().clone();

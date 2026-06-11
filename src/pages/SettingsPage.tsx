@@ -5,6 +5,8 @@ import type { JsonObject } from "../api/tauri";
 import { useToast } from "../context/ToastContext";
 import { errorMessage } from "../types/errors";
 import { createScopedLogger } from "../lib/logger";
+import { APP_VERSION } from "../lib/constants";
+import { checkForUpdatesAndApply } from "../services/updateService";
 
 const SQLITE_FILTER = [{ name: "SQLite", extensions: ["sqlite", "db"] }];
 const QB_IMPORT_FILTER = [
@@ -198,6 +200,27 @@ export function SettingsPage() {
             onClick={() => void onImportQuickbooks()}
           >
             Choose export file…
+          </button>
+        </div>
+      </section>
+
+      <section className="kb-settings-extra">
+        <h2>Application updates</h2>
+        <p className="kb-muted">
+          Updates are checked manually only (not on startup). When a newer
+          signed release is published on GitHub, download and install it here.
+        </p>
+        <p className="kb-muted" data-testid="settings-app-version">
+          Installed version: <strong>{APP_VERSION}</strong>
+        </p>
+        <div className="kb-actions">
+          <button
+            type="button"
+            className="kb-button-secondary"
+            data-testid="menu-check-updates"
+            onClick={() => void checkForUpdatesAndApply()}
+          >
+            Check for updates
           </button>
         </div>
       </section>
