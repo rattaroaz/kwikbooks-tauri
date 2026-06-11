@@ -5,7 +5,6 @@ import { todayISODate } from "../lib/dates";
 import { parseMinorInt } from "../lib/money";
 import { requireValidISODate } from "../lib/validateDate";
 import { useToast } from "../context/ToastContext";
-import { errorMessage } from "../types/errors";
 
 type Vendor = { id: number; displayName: string };
 type BankAccount = {
@@ -16,7 +15,7 @@ type BankAccount = {
 };
 
 export function PayBillPage() {
-  const { push } = useToast();
+  const { push, pushApiError } = useToast();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [banks, setBanks] = useState<BankAccount[]>([]);
   const [vendorId, setVendorId] = useState(0);
@@ -44,10 +43,10 @@ export function PayBillPage() {
           setBankAccountId(bankRows[0].id);
         }
       } catch (e) {
-        push("error", errorMessage(e));
+        pushApiError(e, "PayBillPage");
       }
     })();
-  }, [push]);
+  }, [pushApiError]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -85,7 +84,7 @@ export function PayBillPage() {
       setBillIdStr("");
       setMemo("");
     } catch (err) {
-      push("error", errorMessage(err));
+      pushApiError(err, "PayBillPage");
     }
   }
 

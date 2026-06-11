@@ -5,5 +5,3 @@ export type UpdateDialogPhase =
   | "downloading"
   | "installing"
   | "error";
-
-export type UpdateStatus = "up_to_date" | "update_available" | "error";

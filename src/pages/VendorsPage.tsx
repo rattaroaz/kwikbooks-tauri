@@ -1,7 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import * as api from "../api/tauri";
 import { useToast } from "../context/ToastContext";
-import { errorMessage } from "../types/errors";
 
 type Vendor = {
   id: number;
@@ -10,7 +9,7 @@ type Vendor = {
 };
 
 export function VendorsPage() {
-  const { push } = useToast();
+  const { push, pushApiError } = useToast();
   const [rows, setRows] = useState<Vendor[]>([]);
   const [name, setName] = useState("");
 
@@ -19,9 +18,9 @@ export function VendorsPage() {
       const data = (await api.listVendors()) as Vendor[];
       setRows(data);
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "VendorsPage");
     }
-  }, [push]);
+  }, [pushApiError]);
 
   useEffect(() => {
     void load();
@@ -39,7 +38,7 @@ export function VendorsPage() {
       setName("");
       await load();
     } catch (err) {
-      push("error", errorMessage(err));
+      pushApiError(err, "VendorsPage");
     }
   }
 

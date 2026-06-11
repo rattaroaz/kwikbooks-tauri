@@ -3,7 +3,6 @@ import * as api from "../api/tauri";
 import { PageLoading } from "../components/PageLoading";
 import { formatMoneyMinor } from "../lib/money";
 import { useToast } from "../context/ToastContext";
-import { errorMessage } from "../types/errors";
 
 type Row = {
   id: number;
@@ -23,7 +22,7 @@ const ACCOUNT_TYPES = [
 ] as const;
 
 export function AccountsPage() {
-  const { push } = useToast();
+  const { push, pushApiError } = useToast();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ activeOnly: true });
@@ -40,11 +39,11 @@ export function AccountsPage() {
       const data = (await api.accountList(filter)) as Row[];
       setRows(data);
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "AccountsPage");
     } finally {
       setLoading(false);
     }
-  }, [filter, push]);
+  }, [filter, pushApiError]);
 
   useEffect(() => {
     void load();
@@ -88,7 +87,7 @@ export function AccountsPage() {
       resetForm();
       await load();
     } catch (err) {
-      push("error", errorMessage(err));
+      pushApiError(err, "AccountsPage");
     }
   }
 
@@ -112,7 +111,7 @@ export function AccountsPage() {
       }
       await load();
     } catch (err) {
-      push("error", errorMessage(err));
+      pushApiError(err, "AccountsPage");
     }
   }
 

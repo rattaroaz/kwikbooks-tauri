@@ -358,7 +358,7 @@ LOGIC (replicate exactly unless noted):
     }
   }
 
-FEED UNAVAILABLE DETECTION (isUpdateFeedUnavailable):
+FEED UNAVAILABLE DETECTION (internal helper in updateService.ts):
   Lowercase message contains any of:
     - "could not fetch a valid release json"
     - "failed to fetch"
@@ -406,9 +406,6 @@ Unit tests to include (src/lib/semver.test.ts):
     | "downloading"
     | "installing"
     | "error";
-
-  export type UpdateStatus = "up_to_date" | "update_available" | "error";
-    (used in log metadata, optional)
 
 11.2 UI STORE (Zustand example: src/stores/uiStore.ts)
 

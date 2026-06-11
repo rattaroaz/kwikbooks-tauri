@@ -5,14 +5,13 @@ import { downloadTextFile, rowsToCsv } from "../lib/csv";
 import { todayISODate } from "../lib/dates";
 import { formatMoneyMinor, sumMinor } from "../lib/money";
 import { useToast } from "../context/ToastContext";
-import { errorMessage } from "../types/errors";
 
 type Tab = "pl" | "bs" | "tb" | "ar" | "ap" | "gl";
 
 type AccountOption = { id: number; code: string; name: string };
 
 export function ReportsPage() {
-  const { push } = useToast();
+  const { push, pushApiError } = useToast();
   const [tab, setTab] = useState<Tab>("pl");
   const [from, setFrom] = useState(todayISODate());
   const [to, setTo] = useState(todayISODate());
@@ -32,7 +31,7 @@ export function ReportsPage() {
       setPl(r);
       push("success", "Profit & loss loaded");
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "ReportsPage");
     }
   }
 
@@ -42,7 +41,7 @@ export function ReportsPage() {
       setBs(r);
       push("success", "Balance sheet loaded");
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "ReportsPage");
     }
   }
 
@@ -52,7 +51,7 @@ export function ReportsPage() {
       setTb(r);
       push("success", "Trial balance loaded");
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "ReportsPage");
     }
   }
 
@@ -62,7 +61,7 @@ export function ReportsPage() {
       setAr(r);
       push("success", "AR summary loaded");
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "ReportsPage");
     }
   }
 
@@ -72,7 +71,7 @@ export function ReportsPage() {
       setAp(r);
       push("success", "AP summary loaded");
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "ReportsPage");
     }
   }
 
@@ -86,7 +85,7 @@ export function ReportsPage() {
         setGlAccountId(rows[0].id);
       }
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "ReportsPage");
     }
   }
 
@@ -100,7 +99,7 @@ export function ReportsPage() {
       setGl(r);
       push("success", "General ledger loaded");
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "ReportsPage");
     }
   }
 

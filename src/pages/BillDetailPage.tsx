@@ -4,7 +4,6 @@ import * as api from "../api/tauri";
 import type { JsonObject } from "../api/tauri";
 import { formatMoneyMinor } from "../lib/money";
 import { useToast } from "../context/ToastContext";
-import { errorMessage } from "../types/errors";
 
 type BillDetailData = {
   header: JsonObject;
@@ -14,7 +13,7 @@ type BillDetailData = {
 export function BillDetailPage() {
   const { id } = useParams<{ id: string }>();
   const billId = Number(id);
-  const { push } = useToast();
+  const { push, pushApiError } = useToast();
   const [data, setData] = useState<BillDetailData | null>(null);
 
   const load = useCallback(async () => {
@@ -25,9 +24,9 @@ export function BillDetailPage() {
         lines: d.lines as JsonObject[],
       });
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "BillDetailPage");
     }
-  }, [billId, push]);
+  }, [billId, pushApiError]);
 
   useEffect(() => {
     void load();
@@ -59,7 +58,7 @@ export function BillDetailPage() {
                 push("success", "Marked open");
                 await load();
               } catch (e) {
-                push("error", errorMessage(e));
+                pushApiError(e, "BillDetailPage");
               }
             }}
           >
@@ -75,7 +74,7 @@ export function BillDetailPage() {
                 push("success", "Posted to GL");
                 await load();
               } catch (e) {
-                push("error", errorMessage(e));
+                pushApiError(e, "BillDetailPage");
               }
             }}
           >

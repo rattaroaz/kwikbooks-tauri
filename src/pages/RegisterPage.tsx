@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../api/tauri";
 import { useToast } from "../context/ToastContext";
-import { errorMessage } from "../types/errors";
 
 type JRow = {
   id: number;
@@ -12,7 +11,7 @@ type JRow = {
 };
 
 export function RegisterPage() {
-  const { push } = useToast();
+  const { pushApiError } = useToast();
   const [rows, setRows] = useState<JRow[]>([]);
 
   const load = useCallback(async () => {
@@ -20,9 +19,9 @@ export function RegisterPage() {
       const data = (await api.listJournals(300)) as JRow[];
       setRows(data);
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "RegisterPage");
     }
-  }, [push]);
+  }, [pushApiError]);
 
   useEffect(() => {
     void load();

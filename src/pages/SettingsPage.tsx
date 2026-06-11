@@ -3,7 +3,6 @@ import { FormEvent, useEffect, useState } from "react";
 import * as api from "../api/tauri";
 import type { JsonObject } from "../api/tauri";
 import { useToast } from "../context/ToastContext";
-import { errorMessage } from "../types/errors";
 import { createScopedLogger } from "../lib/logger";
 import { APP_VERSION } from "../lib/constants";
 import { checkForUpdatesAndApply } from "../services/updateService";
@@ -15,7 +14,7 @@ const QB_IMPORT_FILTER = [
 const log = createScopedLogger("Settings");
 
 export function SettingsPage() {
-  const { push } = useToast();
+  const { push, pushApiError } = useToast();
   const [name, setName] = useState("");
   const [legalName, setLegalName] = useState("");
   const [fiscalMonth, setFiscalMonth] = useState("1");
@@ -34,10 +33,10 @@ export function SettingsPage() {
         setNextInv(String(c.nextInvoiceNumber ?? "1000"));
         setNextBill(String(c.nextBillNumber ?? "1000"));
       } catch (e) {
-        push("error", errorMessage(e));
+        pushApiError(e, "SettingsPage");
       }
     })();
-  }, [push]);
+  }, [pushApiError]);
 
   async function onBackup() {
     try {
@@ -52,7 +51,7 @@ export function SettingsPage() {
       void log.info("backup completed (vacuum into)");
       push("success", "Backup saved");
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "SettingsPage");
     }
   }
 
@@ -83,7 +82,7 @@ export function SettingsPage() {
         push("info", s.warnings.slice(0, 5).join(" "));
       }
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "SettingsPage");
     }
   }
 
@@ -113,7 +112,7 @@ export function SettingsPage() {
         "Database restored. Reload the app if numbers look stale.",
       );
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "SettingsPage");
     }
   }
 
@@ -131,7 +130,7 @@ export function SettingsPage() {
       void log.info("company profile saved");
       push("success", "Company saved");
     } catch (err) {
-      push("error", errorMessage(err));
+      pushApiError(err, "SettingsPage");
     }
   }
 

@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import * as api from "../api/tauri";
 import { formatMoneyMinor } from "../lib/money";
 import { useToast } from "../context/ToastContext";
-import { errorMessage } from "../types/errors";
 
 type InvRow = {
   id: number;
@@ -16,7 +15,7 @@ type InvRow = {
 };
 
 export function InvoicesPage() {
-  const { push } = useToast();
+  const { pushApiError } = useToast();
   const [rows, setRows] = useState<InvRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -26,11 +25,11 @@ export function InvoicesPage() {
       const data = (await api.listInvoices()) as InvRow[];
       setRows(data);
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "InvoicesPage");
     } finally {
       setLoading(false);
     }
-  }, [push]);
+  }, [pushApiError]);
 
   useEffect(() => {
     void load();

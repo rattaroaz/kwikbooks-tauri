@@ -5,22 +5,42 @@ use tauri::State;
 
 fn invoice_post_impl(db_path: &std::path::Path, invoice_id: i64) -> Result<i64, DbCommandError> {
     let mut conn = open_sqlite(db_path)?;
-    post_invoice(&mut conn, invoice_id)
+    let journal_id = post_invoice(&mut conn, invoice_id)?;
+    log::info!(
+        target: "kwikbooks_lib::ipc::posting",
+        "invoice_post invoice_id={invoice_id} journal_id={journal_id}"
+    );
+    Ok(journal_id)
 }
 
 fn bill_post_impl(db_path: &std::path::Path, bill_id: i64) -> Result<i64, DbCommandError> {
     let mut conn = open_sqlite(db_path)?;
-    post_bill(&mut conn, bill_id)
+    let journal_id = post_bill(&mut conn, bill_id)?;
+    log::info!(
+        target: "kwikbooks_lib::ipc::posting",
+        "bill_post bill_id={bill_id} journal_id={journal_id}"
+    );
+    Ok(journal_id)
 }
 
 fn customer_payment_post_impl(db_path: &std::path::Path, payment_id: i64) -> Result<i64, DbCommandError> {
     let mut conn = open_sqlite(db_path)?;
-    post_customer_payment(&mut conn, payment_id)
+    let journal_id = post_customer_payment(&mut conn, payment_id)?;
+    log::info!(
+        target: "kwikbooks_lib::ipc::posting",
+        "customer_payment_post payment_id={payment_id} journal_id={journal_id}"
+    );
+    Ok(journal_id)
 }
 
 fn vendor_payment_post_impl(db_path: &std::path::Path, payment_id: i64) -> Result<i64, DbCommandError> {
     let mut conn = open_sqlite(db_path)?;
-    post_vendor_payment(&mut conn, payment_id)
+    let journal_id = post_vendor_payment(&mut conn, payment_id)?;
+    log::info!(
+        target: "kwikbooks_lib::ipc::posting",
+        "vendor_payment_post payment_id={payment_id} journal_id={journal_id}"
+    );
+    Ok(journal_id)
 }
 
 #[tauri::command]

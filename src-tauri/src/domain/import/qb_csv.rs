@@ -294,3 +294,44 @@ fn map_csv_account_type(s: &str) -> (&'static str, bool) {
     };
     (kind, bank)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::parse_csv;
+
+    #[test]
+    fn parse_customer_csv_comma_delimited() {
+        let csv = "Customer Name,Email,Phone\nAcme Corp,acme@test.com,555-0100\n";
+        let (batch, skipped, warnings) = parse_csv(csv).unwrap();
+        assert_eq!(skipped, 0);
+        assert!(warnings.is_empty());
+        assert_eq!(batch.customers.len(), 1);
+        assert_eq!(batch.customers[0].display_name, "Acme Corp");
+        assert_eq!(batch.customers[0].email.as_deref(), Some("acme@test.com"));
+    }
+
+    #[test]
+    fn parse_vendor_csv_tab_delimited() {
+        let csv = "Vendor\tCompany Name\nOffice Mart\tOffice Mart LLC\n";
+        let (batch, skipped, _) = parse_csv(csv).unwrap();
+        assert_eq!(skipped, 0);
+        assert_eq!(batch.vendors.len(), 1);
+        assert_eq!(batch.vendors[0].display_name, "Office Mart");
+    }
+
+    #[test]
+    fn parse_account_csv_maps_type() {
+        let csv = "Account Number,Account Name,Account Type\n1000,Cash,Bank\n6000,Utilities,Expense\n";
+        let (batch, skipped, _) = parse_csv(csv).unwrap();
+        assert_eq!(skipped, 0);
+        assert_eq!(batch.accounts.len(), 2);
+        assert_eq!(batch.accounts[0].code, "1000");
+        assert!(batch.accounts[0].is_bank_cash);
+        assert_eq!(batch.accounts[1].account_type, "expense");
+    }
+
+    #[test]
+    fn parse_csv_rejects_empty_headers() {
+        assert!(parse_csv("\n").is_err());
+    }
+}

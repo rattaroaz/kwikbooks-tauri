@@ -9,6 +9,7 @@ export async function installTauriMock(page: Page): Promise<void> {
       code: string;
       name: string;
       accountType: string;
+      isBankCash?: boolean;
     };
     type Invoice = {
       id: number;
@@ -37,6 +38,7 @@ export async function installTauriMock(page: Page): Promise<void> {
       nextInvoiceId: 1,
       nextBillId: 1,
       nextJournalId: 1,
+      nextPaymentId: 1,
       company: {
         name: "Mock Company",
         legalName: "Mock Company LLC",
@@ -48,7 +50,8 @@ export async function installTauriMock(page: Page): Promise<void> {
       customers: [{ id: 1, displayName: "Acme Corp" }] as Customer[],
       vendors: [{ id: 1, displayName: "Office Mart" }] as Vendor[],
       accounts: [
-        { id: 1, code: "5000", name: "Expenses", accountType: "expense" },
+        { id: 1, code: "5000", name: "Expenses", accountType: "expense", isBankCash: false },
+        { id: 2, code: "1000", name: "Checking", accountType: "asset", isBankCash: true },
       ] as Account[],
       invoices: [] as Invoice[],
       invoiceLines: new Map<number, Array<Record<string, unknown>>>(),
@@ -59,12 +62,6 @@ export async function installTauriMock(page: Page): Promise<void> {
     };
 
     const controls = {
-      setCustomers(customers: Array<{ id: number; displayName: string }>) {
-        state.customers = customers;
-      },
-      setVendors(vendors: Array<{ id: number; displayName: string }>) {
-        state.vendors = vendors;
-      },
       setCommandError(command: string, message: string | null) {
         if (message === null) {
           delete state.commandErrors[command];
@@ -229,6 +226,113 @@ export async function installTauriMock(page: Page): Promise<void> {
           bill.journalId = state.nextJournalId++;
           return Promise.resolve(bill.journalId);
         }
+        case "list_invoices":
+          return Promise.resolve(
+            state.invoices.map((i) => ({
+              id: i.id,
+              number: i.number,
+              issueDate: i.issueDate,
+              status: i.status,
+              totalMinor: i.totalMinor,
+              customerName: i.customerName,
+            })),
+          );
+        case "list_bills":
+          return Promise.resolve(
+            state.bills.map((b) => ({
+              id: b.id,
+              number: b.number,
+              issueDate: b.issueDate,
+              status: b.status,
+              totalMinor: b.totalMinor,
+              vendorName: b.vendorName,
+            })),
+          );
+        case "list_journals":
+          return Promise.resolve([]);
+        case "customer_create": {
+          const input = args.input as Record<string, unknown>;
+          const id = state.customers.length + 1;
+          state.customers.push({
+            id,
+            displayName: String(input.displayName ?? ""),
+          });
+          return Promise.resolve(id);
+        }
+        case "vendor_create": {
+          const input = args.input as Record<string, unknown>;
+          const id = state.vendors.length + 1;
+          state.vendors.push({
+            id,
+            displayName: String(input.displayName ?? ""),
+          });
+          return Promise.resolve(id);
+        }
+        case "account_create": {
+          const input = args.input as Record<string, unknown>;
+          const id = state.accounts.length + 1;
+          state.accounts.push({
+            id,
+            code: String(input.code ?? ""),
+            name: String(input.name ?? ""),
+            accountType: String(input.accountType ?? "expense"),
+            isBankCash: Boolean(input.isBankCash),
+          });
+          return Promise.resolve(id);
+        }
+        case "account_update":
+          return Promise.resolve({ rowsAffected: 1 });
+        case "account_deactivate":
+          return Promise.resolve({ rowsAffected: 1 });
+        case "customer_payment_create": {
+          const id = state.nextPaymentId++;
+          return Promise.resolve(id);
+        }
+        case "customer_payment_post": {
+          return Promise.resolve(state.nextJournalId++);
+        }
+        case "vendor_payment_create": {
+          const id = state.nextPaymentId++;
+          return Promise.resolve(id);
+        }
+        case "vendor_payment_post": {
+          return Promise.resolve(state.nextJournalId++);
+        }
+        case "report_profit_loss":
+          return Promise.resolve({
+            incomeLines: [{ code: "4000", name: "Sales", amountMinor: 10000 }],
+            expenseLines: [{ code: "5000", name: "Expenses", amountMinor: 3000 }],
+            netIncomeMinor: 7000,
+          });
+        case "report_balance_sheet":
+          return Promise.resolve({
+            assets: [{ code: "1000", name: "Cash", balanceMinor: 5000 }],
+            liabilities: [],
+            equity: [{ code: "3000", name: "Equity", balanceMinor: 5000 }],
+          });
+        case "report_trial_balance":
+          return Promise.resolve([
+            { code: "1000", name: "Cash", debitMinor: 5000, creditMinor: 0 },
+          ]);
+        case "report_ar_open":
+          return Promise.resolve([
+            { customerName: "Acme Corp", openMinor: 5100, invoiceCount: 1 },
+          ]);
+        case "report_ap_open":
+          return Promise.resolve([
+            { vendorName: "Office Mart", openMinor: 1200, billCount: 1 },
+          ]);
+        case "report_general_ledger":
+          return Promise.resolve([
+            {
+              entryDate: "2026-01-01",
+              memo: "Opening",
+              debitMinor: 100,
+              creditMinor: 0,
+            },
+          ]);
+        case "global_search":
+          return Promise.resolve({ query: String(args.query ?? ""), hits: [] });
         case "db_backup_vacuum":
           state.backupPath = String(args.destinationPath ?? state.backupPath);
           return Promise.resolve();

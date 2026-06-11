@@ -1,12 +1,5 @@
 import { invoke } from "./invoke";
 
-/** Mirrors `DbCommandError` in `src-tauri/src/db/error.rs` (serde tag = `code`). */
-export type DbCommandError =
-  | { code: "path_resolution"; message: string }
-  | { code: "database_open"; message: string }
-  | { code: "migration"; version: number; message: string }
-  | { code: "sql"; message: string };
-
 export type DbInitResponse = {
   dbPath: string;
   migrationVersion: number;

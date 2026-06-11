@@ -2,10 +2,9 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import * as api from "../api/tauri";
 import { useToast } from "../context/ToastContext";
-import { errorMessage } from "../types/errors";
 
 export function Dashboard() {
-  const { push } = useToast();
+  const { pushApiError } = useToast();
   const [inv, setInv] = useState<number | null>(null);
   const [bill, setBill] = useState<number | null>(null);
   const [ar, setAr] = useState<number | null>(null);
@@ -24,12 +23,12 @@ export function Dashboard() {
         setBill(b.length);
         setAr(a.length);
       } catch (e) {
-        push("error", errorMessage(e));
+        pushApiError(e, "Dashboard");
       } finally {
         setLoading(false);
       }
     })();
-  }, [push]);
+  }, [pushApiError]);
 
   return (
     <div className="kb-page">

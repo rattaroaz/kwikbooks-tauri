@@ -92,4 +92,12 @@ describe("checkForUpdatesAndApply", () => {
     expect(getUpdateDialogSnapshot().phase).toBe("error");
     expect(getUpdateDialogSnapshot().message).toBe("network down");
   });
+
+  it("short-circuits in E2E mode", async () => {
+    vi.stubEnv("VITE_E2E", "true");
+    const { checkForUpdatesAndApply } = await import("./updateService");
+    await checkForUpdatesAndApply();
+    expect(checkMock).not.toHaveBeenCalled();
+    expect(getUpdateDialogSnapshot().phase).toBe("up_to_date");
+  });
 });

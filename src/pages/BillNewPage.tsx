@@ -5,7 +5,6 @@ import { todayISODate } from "../lib/dates";
 import { parseMinorInt } from "../lib/money";
 import { useToast } from "../context/ToastContext";
 import { requireValidISODate } from "../lib/validateDate";
-import { errorMessage } from "../types/errors";
 import { createScopedLogger } from "../lib/logger";
 
 type Vendor = { id: number; displayName: string };
@@ -20,7 +19,7 @@ const log = createScopedLogger("BillNew");
 
 export function BillNewPage() {
   const nav = useNavigate();
-  const { push } = useToast();
+  const { push, pushApiError } = useToast();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [expenseAccounts, setExpenseAccounts] = useState<AccountRow[]>([]);
   const [vendorId, setVendorId] = useState<number | "">("");
@@ -48,10 +47,10 @@ export function BillNewPage() {
           setExpenseId(first.id);
         }
       } catch (e) {
-        push("error", errorMessage(e));
+        pushApiError(e, "BillNewPage");
       }
     })();
-  }, [push]);
+  }, [pushApiError]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -83,7 +82,7 @@ export function BillNewPage() {
       push("success", "Bill created (draft)");
       nav(`/bills/${id}`);
     } catch (err) {
-      push("error", errorMessage(err));
+      pushApiError(err, "BillNewPage");
     }
   }
 

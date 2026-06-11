@@ -55,7 +55,7 @@ function wireConsoleToHost(log: typeof import("@tauri-apps/plugin-log")): void {
   wrap("error", log.error);
 }
 
-export type LogFn = (message: string) => Promise<void>;
+type LogFn = (message: string) => Promise<void>;
 
 /** Minimal scoped logger — messages go to host log files and terminal via the plugin. */
 export function createScopedLogger(scope: string): {

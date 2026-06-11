@@ -20,7 +20,8 @@ export const env = {
   isProd: import.meta.env.PROD,
   mode: import.meta.env.MODE,
   /**
-   * No backend is wired for v1. When `false` (default), `captureException` is a no-op.
+   * Opt-in remote telemetry (not wired in v1). `captureException` always logs to
+   * the host via plugin-log regardless of this flag.
    */
   telemetry: parseBool(import.meta.env.VITE_TELEMETRY, false),
   /**

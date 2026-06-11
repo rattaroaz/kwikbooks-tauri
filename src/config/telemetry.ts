@@ -1,6 +1,7 @@
 /**
  * Telemetry / crash pipeline is **disabled by default** (local desktop app).
- * Set `VITE_TELEMETRY=true` only after wiring a collector; until then calls are no-ops.
+ * `captureException` always writes to host logs; set `VITE_TELEMETRY=true` only
+ * after wiring a remote collector (not implemented in v1).
  */
 import { error as hostError } from "@tauri-apps/plugin-log";
 import { env } from "./env";

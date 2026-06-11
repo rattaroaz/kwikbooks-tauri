@@ -22,6 +22,7 @@ import { WelcomePage } from "./pages/WelcomePage";
 import { ReceivePaymentPage } from "./pages/ReceivePaymentPage";
 import { PayBillPage } from "./pages/PayBillPage";
 import { UpdateDialog } from "./components/UpdateDialog";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { errorMessage } from "./types/errors";
 import "./App.css";
 
@@ -110,7 +111,8 @@ export default function App() {
     <TauriGate>
       <UpdateDialog />
       <DbGate>
-        <Routes>
+        <ErrorBoundary>
+          <Routes>
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/accounts" element={<AccountsPage />} />
@@ -131,6 +133,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
+        </ErrorBoundary>
       </DbGate>
     </TauriGate>
   );

@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { reportError } from "../lib/reportError";
 
 type ToastKind = "info" | "error" | "success";
 
@@ -14,6 +15,8 @@ export type ToastItem = { id: number; kind: ToastKind; message: string };
 type ToastContextValue = {
   toasts: ToastItem[];
   push: (kind: ToastKind, message: string) => void;
+  /** Log API/IPC failures to host and show an error toast. */
+  pushApiError: (error: unknown, context: string) => void;
   dismiss: (id: number) => void;
 };
 
@@ -32,13 +35,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }, 6000);
   }, []);
 
+  const pushApiError = useCallback(
+    (error: unknown, context: string) => {
+      reportError(context, error, (message) => push("error", message));
+    },
+    [push],
+  );
+
   const dismiss = useCallback((id: number) => {
     setToasts((t) => t.filter((x) => x.id !== id));
   }, []);
 
   const value = useMemo(
-    () => ({ toasts, push, dismiss }),
-    [toasts, push, dismiss],
+    () => ({ toasts, push, pushApiError, dismiss }),
+    [toasts, push, pushApiError, dismiss],
   );
 
   return (

@@ -21,7 +21,7 @@ function upToDateMessage(): string {
   return `${APP_NAME} is up to date (version ${APP_VERSION}).`;
 }
 
-export function isUpdateFeedUnavailable(message: string): boolean {
+function isUpdateFeedUnavailable(message: string): boolean {
   const m = message.toLowerCase();
   return (
     m.includes("could not fetch a valid release json") ||

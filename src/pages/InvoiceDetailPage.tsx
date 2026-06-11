@@ -4,7 +4,6 @@ import * as api from "../api/tauri";
 import type { JsonObject } from "../api/tauri";
 import { formatMoneyMinor } from "../lib/money";
 import { useToast } from "../context/ToastContext";
-import { errorMessage } from "../types/errors";
 
 type InvDetailData = {
   header: JsonObject;
@@ -14,7 +13,7 @@ type InvDetailData = {
 export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const invoiceId = Number(id);
-  const { push } = useToast();
+  const { push, pushApiError } = useToast();
   const [data, setData] = useState<InvDetailData | null>(null);
 
   const load = useCallback(async () => {
@@ -25,9 +24,9 @@ export function InvoiceDetailPage() {
         lines: d.lines as JsonObject[],
       });
     } catch (e) {
-      push("error", errorMessage(e));
+      pushApiError(e, "InvoiceDetailPage");
     }
-  }, [invoiceId, push]);
+  }, [invoiceId, pushApiError]);
 
   useEffect(() => {
     void load();
@@ -60,7 +59,7 @@ export function InvoiceDetailPage() {
                 push("success", "Marked sent");
                 await load();
               } catch (e) {
-                push("error", errorMessage(e));
+                pushApiError(e, "InvoiceDetailPage");
               }
             }}
           >
@@ -76,7 +75,7 @@ export function InvoiceDetailPage() {
                 push("success", "Posted to GL");
                 await load();
               } catch (e) {
-                push("error", errorMessage(e));
+                pushApiError(e, "InvoiceDetailPage");
               }
             }}
           >
