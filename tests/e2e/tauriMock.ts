@@ -34,6 +34,27 @@ export async function installTauriMock(page: Page): Promise<void> {
       totalMinor: number;
       vendorName: string | null;
     };
+    const COMMAND_ERRORS_KEY = "kwikbooks-e2e-command-errors";
+
+    function readCommandErrors(): Record<string, string> {
+      try {
+        const raw = sessionStorage.getItem(COMMAND_ERRORS_KEY);
+        if (!raw) {
+          return {};
+        }
+        const parsed: unknown = JSON.parse(raw);
+        return typeof parsed === "object" && parsed !== null
+          ? (parsed as Record<string, string>)
+          : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function writeCommandErrors(errors: Record<string, string>): void {
+      sessionStorage.setItem(COMMAND_ERRORS_KEY, JSON.stringify(errors));
+    }
+
     const state = {
       nextInvoiceId: 1,
       nextBillId: 1,
@@ -70,16 +91,17 @@ export async function installTauriMock(page: Page): Promise<void> {
       bills: [] as Bill[],
       billLines: new Map<number, Array<Record<string, unknown>>>(),
       backupPath: "C:/tmp/kwikbooks-backup.sqlite",
-      commandErrors: {} as Record<string, string>,
+      commandErrors: readCommandErrors(),
     };
 
     const controls = {
       setCommandError(command: string, message: string | null) {
         if (message === null) {
           delete state.commandErrors[command];
-          return;
+        } else {
+          state.commandErrors[command] = message;
         }
-        state.commandErrors[command] = message;
+        writeCommandErrors(state.commandErrors);
       },
     };
 
