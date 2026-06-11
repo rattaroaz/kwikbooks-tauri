@@ -473,7 +473,11 @@ STEPS (in order):
   1. checkout
   2. setup-node (v22), npm ci
   3. rust toolchain stable
-  4. Enable VBScript Windows capability (required for MSI/WiX on GitHub runners)
+  4. Enable VBScript for WiX MSI builds (required on Windows 11 24H2+ runners):
+       PowerShell discovers the VBSCRIPT Feature-on-Demand capability and runs
+       Add-WindowsCapability if not already installed. Legacy images fall back to
+       dism /enable-feature. Do NOT use enable-feature alone on windows-latest —
+       it fails with 0x800f080c ("Feature name VBSCRIPT is unknown").
   5. Normalize signing secrets (trim whitespace; write to GITHUB_ENV via EOF
      delimiters so base64 keys with = characters are not corrupted)
   6. tauri-apps/tauri-action@v0 with:
@@ -690,6 +694,13 @@ FIX:     Push tag vX.Y.Z and complete Release workflow.
 SYMPTOM: Error about release JSON / 404 / not found
 CAUSE:   No releases, or release exists without latest.json asset.
 FIX:     Run release workflow with includeUpdaterJson: true; verify asset upload.
+
+SYMPTOM: CI fails on "Enable VBScript" — DISM 0x800f080c, "Feature name VBSCRIPT is unknown"
+CAUSE:   Windows 11 24H2+ GitHub runners expose VBSCRIPT as a Feature on Demand
+         (capability VBSCRIPT~~~~), not a legacy optional feature. enable-feature
+         is the wrong DISM subcommand on these images.
+FIX:     Use Get-WindowsCapability + Add-WindowsCapability (see release.yml), or
+         manually: dism /online /add-capability /capabilityname:VBSCRIPT~~~~
 
 SYMPTOM: CI fails "Wrong password for that key" / "incorrect updater private key password"
 CAUSE:   Usually NOT a GitHub glitch. Most common causes (in order):

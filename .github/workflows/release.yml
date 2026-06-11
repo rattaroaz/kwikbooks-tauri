@@ -26,8 +26,29 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Enable VBScript (WiX / MSI on Windows runner)
+        shell: pwsh
         run: |
-          dism /online /enable-feature /featurename:VBSCRIPT /all /norestart
+          # Windows 11 24H2+ (GitHub windows-latest): VBSCRIPT is a Feature on Demand
+          # (capability), not a legacy optional feature — enable-feature fails with 0x800f080c.
+          $cap = Get-WindowsCapability -Online | Where-Object { $_.Name -like 'VBSCRIPT*' } | Select-Object -First 1
+          if ($cap) {
+            if ($cap.State -eq 'Installed') {
+              Write-Host "$($cap.Name) already installed."
+            } else {
+              Write-Host "Installing $($cap.Name) (state was $($cap.State))..."
+              Add-WindowsCapability -Online -Name $cap.Name | Out-String | Write-Host
+            }
+          } else {
+            Write-Host 'VBSCRIPT capability not found; trying legacy DISM feature enable...'
+            dism /online /enable-feature /featurename:VBSCRIPT /all /norestart
+            if ($LASTEXITCODE -ne 0 -and -not (Test-Path "$env:Windir\System32\vbscript.dll")) {
+              throw "VBSCRIPT is required for MSI builds but could not be enabled (exit $LASTEXITCODE)."
+            }
+          }
+          if (-not (Test-Path "$env:Windir\System32\vbscript.dll")) {
+            throw 'VBSCRIPT is required for MSI builds (vbscript.dll missing after install step).'
+          }
+          Write-Host 'VBScript ready for WiX MSI build.'
 
       - name: Normalize signing secrets
         shell: pwsh
