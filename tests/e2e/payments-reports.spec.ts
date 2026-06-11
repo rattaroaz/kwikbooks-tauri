@@ -7,7 +7,9 @@ test.beforeEach(async ({ page }) => {
 
 test("receive payment flow posts successfully", async ({ page }) => {
   await page.goto("/payments/receive");
-  await expect(page.getByRole("heading", { name: "Receive payment" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Receive payment" }),
+  ).toBeVisible();
   await page.getByLabel("Amount (minor units)").fill("2500");
   await page.getByRole("button", { name: "Record & post" }).click();
   await expect(page.getByText(/Customer payment recorded/i)).toBeVisible();
@@ -29,7 +31,9 @@ test("reports profit and loss loads", async ({ page }) => {
 
 test("accounts page lists and creates account", async ({ page }) => {
   await page.goto("/accounts");
-  await expect(page.getByRole("heading", { name: "Chart of accounts" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Chart of accounts" }),
+  ).toBeVisible();
   await page.getByLabel("Code").fill("6100");
   await page.getByLabel("Name").fill("Rent");
   await page.getByRole("button", { name: "Create" }).click();

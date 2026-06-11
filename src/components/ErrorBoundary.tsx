@@ -18,8 +18,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
     const where =
-      info.componentStack?.split("\n").find((l) => l.trim().length > 0)?.trim() ??
-      "render";
+      info.componentStack
+        ?.split("\n")
+        .find((l) => l.trim().length > 0)
+        ?.trim() ?? "render";
     captureException(error, `ErrorBoundary.${where}`);
   }
 

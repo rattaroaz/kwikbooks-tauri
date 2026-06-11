@@ -38,7 +38,9 @@ describe("AccountsPage", () => {
     vi.mocked(api.accountCreate).mockResolvedValue(2);
     renderWithApp(<AccountsPage />);
     await waitFor(() => expect(screen.getByText("Expenses")).toBeDefined());
-    const form = screen.getByRole("heading", { name: "Add account" }).closest("form")!;
+    const form = screen
+      .getByRole("heading", { name: "Add account" })
+      .closest("form")!;
     fireEvent.change(within(form).getByLabelText(/^Code/i), {
       target: { value: "6000" },
     });

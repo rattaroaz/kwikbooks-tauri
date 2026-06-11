@@ -42,7 +42,9 @@ describe("ReportsPage", () => {
   it("loads AR summary on tab switch", async () => {
     renderWithApp(<ReportsPage />);
     fireEvent.click(screen.getByRole("button", { name: "AR summary" }));
-    fireEvent.click(screen.getByRole("button", { name: "Load AR (sent invoices)" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Load AR (sent invoices)" }),
+    );
     await waitFor(() => {
       expect(api.reportArOpen).toHaveBeenCalled();
       expect(screen.getByText("$51.00")).toBeDefined();

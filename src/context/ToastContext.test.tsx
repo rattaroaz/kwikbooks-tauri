@@ -20,7 +20,10 @@ function Probe() {
   const { pushApiError, push } = useToast();
   return (
     <div>
-      <button type="button" onClick={() => pushApiError(new Error("fail"), "Probe")}>
+      <button
+        type="button"
+        onClick={() => pushApiError(new Error("fail"), "Probe")}
+      >
         api-fail
       </button>
       <button type="button" onClick={() => push("error", "validation")}>
@@ -39,10 +42,7 @@ describe("ToastContext", () => {
     );
     screen.getByRole("button", { name: "api-fail" }).click();
     expect(warnMock).toHaveBeenCalled();
-    expect(captureMock).toHaveBeenCalledWith(
-      expect.any(Error),
-      "Probe",
-    );
+    expect(captureMock).toHaveBeenCalledWith(expect.any(Error), "Probe");
   });
 
   it("push error without api helper does not capture exception", () => {

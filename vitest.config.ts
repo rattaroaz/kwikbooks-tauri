@@ -17,7 +17,12 @@ export default defineConfig({
         "src/components/PageLoading.tsx",
         "src/context/ToastContext.tsx",
       ],
-      exclude: ["src/**/*.d.ts", "src/test/**", "src/components/UpdateDialog.tsx", "src/components/GlobalSearch.tsx"],
+      exclude: [
+        "src/**/*.d.ts",
+        "src/test/**",
+        "src/components/UpdateDialog.tsx",
+        "src/components/GlobalSearch.tsx",
+      ],
       thresholds: {
         lines: 85,
         functions: 85,

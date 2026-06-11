@@ -50,8 +50,20 @@ export async function installTauriMock(page: Page): Promise<void> {
       customers: [{ id: 1, displayName: "Acme Corp" }] as Customer[],
       vendors: [{ id: 1, displayName: "Office Mart" }] as Vendor[],
       accounts: [
-        { id: 1, code: "5000", name: "Expenses", accountType: "expense", isBankCash: false },
-        { id: 2, code: "1000", name: "Checking", accountType: "asset", isBankCash: true },
+        {
+          id: 1,
+          code: "5000",
+          name: "Expenses",
+          accountType: "expense",
+          isBankCash: false,
+        },
+        {
+          id: 2,
+          code: "1000",
+          name: "Checking",
+          accountType: "asset",
+          isBankCash: true,
+        },
       ] as Account[],
       invoices: [] as Invoice[],
       invoiceLines: new Map<number, Array<Record<string, unknown>>>(),
@@ -301,7 +313,9 @@ export async function installTauriMock(page: Page): Promise<void> {
         case "report_profit_loss":
           return Promise.resolve({
             incomeLines: [{ code: "4000", name: "Sales", amountMinor: 10000 }],
-            expenseLines: [{ code: "5000", name: "Expenses", amountMinor: 3000 }],
+            expenseLines: [
+              { code: "5000", name: "Expenses", amountMinor: 3000 },
+            ],
             netIncomeMinor: 7000,
           });
         case "report_balance_sheet":

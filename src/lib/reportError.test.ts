@@ -15,8 +15,7 @@ vi.mock("../config/telemetry", () => ({
 }));
 
 vi.mock("../types/errors", () => ({
-  errorMessage: (e: unknown) =>
-    e instanceof Error ? e.message : String(e),
+  errorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
 }));
 
 describe("reportError", () => {
