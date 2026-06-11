@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.9.0)"
+        required: true
+        default: "v0.9.0"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Enable VBScript (WiX / MSI on Windows runner)
+        run: |
+          dism /online /enable-feature /featurename:VBSCRIPT /all /norestart
+
+      - name: Verify signing secrets
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) { throw "TAURI_SIGNING_PRIVATE_KEY secret is not set" }
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD) { Write-Warning "TAURI_SIGNING_PRIVATE_KEY_PASSWORD is empty (ok if key has no password)" }
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          releaseName: "Kwikbooks ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true
+          args: --bundles nsis,msi
