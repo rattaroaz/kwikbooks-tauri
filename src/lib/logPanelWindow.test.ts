@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { isTauriMock, outerSizeMock, scaleFactorMock, setSizeMock } =
-  vi.hoisted(() => ({
+const { isTauriMock, outerSizeMock, scaleFactorMock, setSizeMock } = vi.hoisted(
+  () => ({
     isTauriMock: vi.fn(() => false),
     outerSizeMock: vi.fn(),
     scaleFactorMock: vi.fn(),
     setSizeMock: vi.fn(() => Promise.resolve()),
-  }));
+  }),
+);
 
 vi.mock("@tauri-apps/api/core", () => ({
   isTauri: () => isTauriMock(),
@@ -58,8 +59,11 @@ describe("logPanelWindow", () => {
       .mockResolvedValueOnce({ width: 1444, height: 720 });
     scaleFactorMock.mockResolvedValue(1);
 
-    const { LOG_PANEL_WIDTH, expandWindowForLogPanel, restoreWindowAfterLogPanel } =
-      await import("./logPanelWindow");
+    const {
+      LOG_PANEL_WIDTH,
+      expandWindowForLogPanel,
+      restoreWindowAfterLogPanel,
+    } = await import("./logPanelWindow");
     await expandWindowForLogPanel();
     expect(setSizeMock).toHaveBeenCalledWith(
       expect.objectContaining({
