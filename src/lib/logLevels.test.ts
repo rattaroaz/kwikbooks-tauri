@@ -7,7 +7,9 @@ describe("logLevels", () => {
       { level: "info", line: "a" },
       { level: "warn", line: "b" },
     ];
-    expect(filterLogLines(lines, "info")).toEqual([{ level: "info", line: "a" }]);
+    expect(filterLogLines(lines, "info")).toEqual([
+      { level: "info", line: "a" },
+    ]);
   });
 
   it("returns all lines when filter is all", () => {

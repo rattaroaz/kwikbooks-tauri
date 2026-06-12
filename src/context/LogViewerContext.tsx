@@ -38,7 +38,9 @@ export function LogViewerProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <LogViewerContext.Provider value={value}>{children}</LogViewerContext.Provider>
+    <LogViewerContext.Provider value={value}>
+      {children}
+    </LogViewerContext.Provider>
   );
 }
 

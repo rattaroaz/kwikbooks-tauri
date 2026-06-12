@@ -229,8 +229,8 @@ export function SettingsPage() {
       <section className="kb-settings-extra">
         <h2>Diagnostics</h2>
         <p className="kb-muted">
-          View recent application and webview log entries written by Kwikbooks on
-          this computer.
+          View recent application and webview log entries written by Kwikbooks
+          on this computer.
         </p>
         <div className="kb-actions">
           <button
