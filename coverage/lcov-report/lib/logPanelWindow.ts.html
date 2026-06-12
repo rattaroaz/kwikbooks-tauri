@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for lib/dates.ts</title>
+    <title>Code coverage report for lib/logPanelWindow.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../prettify.css" />
     <link rel="stylesheet" href="../base.css" />
@@ -19,20 +19,20 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../index.html">All files</a> / <a href="index.html">lib</a> dates.ts</h1>
+        <h1><a href="../index.html">All files</a> / <a href="index.html">lib</a> logPanelWindow.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.11% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>16/17</span>
+                <span class='fraction'>20/20</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.75% </span>
+                <span class="strong">87.5% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>15/16</span>
+                <span class='fraction'>7/8</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.11% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>16/17</span>
+                <span class='fraction'>20/20</span>
             </div>
         
             
@@ -98,75 +98,96 @@
 <a name='L33'></a><a href='#L33'>33</a>
 <a name='L34'></a><a href='#L34'>34</a>
 <a name='L35'></a><a href='#L35'>35</a>
-<a name='L36'></a><a href='#L36'>36</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">310x</span>
-<span class="cline-any cline-yes">103x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">207x</span>
-<span class="cline-any cline-yes">207x</span>
-<span class="cline-any cline-yes">207x</span>
-<span class="cline-any cline-yes">207x</span>
-<span class="cline-any cline-yes">207x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">207x</span>
 <span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">204x</span>
-<span class="cline-any cline-yes">204x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
- * **Policy:** business dates are stored and compared as **ISO 8601 calendar dates** (`YYYY-MM-DD`) in local context.
- * Reports use these strings with SQLite `entry_date` text comparison (lexicographic order matches chronological for ISO dates).
- * We do not mix wall-clock timezones into GL dates for MVP; the user’s local calendar day is what they enter.
- */
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { isTauri } from "@tauri-apps/api/core";
+import { PhysicalSize } from "@tauri-apps/api/dpi";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 &nbsp;
-export function todayISODate(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+export const LOG_PANEL_WIDTH = 420;
+&nbsp;
+let savedOuterWidth: number | null = null;
+&nbsp;
+/** Widen the desktop window so the log panel does not cover app content. */
+export async function expandWindowForLogPanel(): Promise&lt;void&gt; {
+  if (!isTauri()) {
+    return;
+  }
+  try {
+    const win = getCurrentWindow();
+    const outer = await win.outerSize();
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (savedOuterWidth === null) {
+      savedOuterWidth = outer.width;
+    }
+    const factor = await win.scaleFactor();
+    const extra = Math.round(LOG_PANEL_WIDTH * factor);
+    await win.setSize(new PhysicalSize(outer.width + extra, outer.height));
+  } catch {
+    /* E2E mock or missing window permission — panel still opens in-layout */
+  }
 }
 &nbsp;
-export function isValidISODate(s: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-    return false;
+/** Restore the window width saved when the log panel was opened. */
+export async function restoreWindowAfterLogPanel(): Promise&lt;void&gt; {
+  if (!isTauri() || savedOuterWidth === null) {
+    savedOuterWidth = null;
+    return;
   }
-  const [ys, ms, ds] = s.split("-");
-  const y = Number(ys);
-  const m = Number(ms);
-  const d = Number(ds);
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) {
-<span class="cstat-no" title="statement not covered" >    return false;</span>
+  try {
+    const win = getCurrentWindow();
+    const outer = await win.outerSize();
+    await win.setSize(new PhysicalSize(savedOuterWidth, outer.height));
+  } catch {
+    /* ignore */
   }
-  if (m &lt; 1 || m &gt; 12 || d &lt; 1 || d &gt; 31) {
-    return false;
-  }
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  return (
-    dt.getUTCFullYear() === y &amp;&amp;
-    dt.getUTCMonth() === m - 1 &amp;&amp;
-    dt.getUTCDate() === d
-  );
+  savedOuterWidth = null;
 }
 &nbsp;</pre></td></tr></table></pre>
 

@@ -63,7 +63,10 @@ describe("checkForUpdatesAndApply", () => {
   });
 
   it("downloads and relaunches when remote is newer", async () => {
-    const downloadAndInstall = vi.fn(async () => undefined);
+    const downloadAndInstall = vi.fn(async (onEvent) => {
+      await onEvent({ event: "Started" });
+      await onEvent({ event: "Finished" });
+    });
     checkMock.mockResolvedValue({
       version: bumpPatch(APP_VERSION),
       downloadAndInstall,
@@ -91,6 +94,22 @@ describe("checkForUpdatesAndApply", () => {
     await checkForUpdatesAndApply();
     expect(getUpdateDialogSnapshot().phase).toBe("error");
     expect(getUpdateDialogSnapshot().message).toBe("network down");
+  });
+
+  it("shows raw error for non-Error failures", async () => {
+    checkMock.mockRejectedValue("network down");
+    const { checkForUpdatesAndApply } = await import("./updateService");
+    await checkForUpdatesAndApply();
+    expect(getUpdateDialogSnapshot().phase).toBe("error");
+    expect(getUpdateDialogSnapshot().message).toBe("network down");
+  });
+
+  it("closes the update dialog", async () => {
+    const { dismissUpdateDialog } = await import("./updateService");
+    const { openUpdateDialog } = await import("../stores/updateDialogStore");
+    openUpdateDialog();
+    dismissUpdateDialog();
+    expect(getUpdateDialogSnapshot().show).toBe(false);
   });
 
   it("short-circuits in E2E mode", async () => {

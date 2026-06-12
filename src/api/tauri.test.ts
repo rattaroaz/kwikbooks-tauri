@@ -25,6 +25,8 @@ import {
   dbRestoreValidate,
   getBill,
   getInvoice,
+  globalSearch,
+  importQuickbooksFile,
   invoiceCreate,
   invoicePost,
   invoiceSetStatus,
@@ -33,6 +35,7 @@ import {
   listInvoices,
   listJournals,
   listVendors,
+  logsRead,
   reportApOpen,
   reportArOpen,
   reportBalanceSheet,
@@ -187,5 +190,18 @@ describe("tauri API contract wrappers", () => {
       "db_restore_apply",
       { sourcePath: "C:/tmp/a.sqlite" },
     ]);
+  });
+
+  it("sends import, search, and logs_read commands", async () => {
+    await importQuickbooksFile("C:/tmp/export.iif");
+    await globalSearch("acme", 10);
+    await logsRead(250);
+    const calls = ipcCommandCalls();
+    expect(calls[0]).toEqual([
+      "import_quickbooks_file",
+      { path: "C:/tmp/export.iif" },
+    ]);
+    expect(calls[1]).toEqual(["global_search", { query: "acme", limit: 10 }]);
+    expect(calls[2]).toEqual(["logs_read", { maxLines: 250 }]);
   });
 });

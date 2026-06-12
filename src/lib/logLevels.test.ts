@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { filterLogLines } from "./logLevels";
+import { defaultEnabledLevels, filterLogLines } from "./logLevels";
 
 describe("logLevels", () => {
+  it("defaultEnabledLevels includes every level", () => {
+    expect(defaultEnabledLevels().size).toBe(6);
+  });
+
   it("filters lines by selected level", () => {
     const lines = [
       { level: "info", line: "a" },

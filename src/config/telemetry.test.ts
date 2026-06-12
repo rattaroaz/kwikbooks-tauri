@@ -56,4 +56,10 @@ describe("telemetry", () => {
     expect(hostErrorMock).toHaveBeenCalledTimes(1);
     expect(debugMock).not.toHaveBeenCalled();
   });
+
+  it("formats non-Error values without context", async () => {
+    const { captureException } = await import("./telemetry");
+    captureException("plain failure");
+    expect(hostErrorMock).toHaveBeenCalledWith("plain failure");
+  });
 });
