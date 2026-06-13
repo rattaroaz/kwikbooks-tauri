@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import * as api from "../api/tauri";
+import { logContext } from "../lib/logContext";
 import { useToast } from "../context/ToastContext";
 
 export function Dashboard() {
@@ -23,7 +24,7 @@ export function Dashboard() {
         setBill(b.length);
         setAr(a.length);
       } catch (e) {
-        pushApiError(e, "Dashboard");
+        pushApiError(e, logContext("Dashboard", "load"));
       } finally {
         setLoading(false);
       }

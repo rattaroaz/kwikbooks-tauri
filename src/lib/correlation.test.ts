@@ -1,8 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createRequestId } from "./correlation";
+import {
+  createRequestId,
+  getLastRequestId,
+  resetLastRequestId,
+  setLastRequestId,
+} from "./correlation";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  resetLastRequestId();
 });
 
 describe("createRequestId", () => {
@@ -26,5 +32,12 @@ describe("createRequestId", () => {
     } finally {
       vi.stubGlobal("crypto", prev);
     }
+  });
+
+  it("tracks last request id for error correlation", () => {
+    setLastRequestId("rid-test");
+    expect(getLastRequestId()).toBe("rid-test");
+    resetLastRequestId();
+    expect(getLastRequestId()).toBeNull();
   });
 });

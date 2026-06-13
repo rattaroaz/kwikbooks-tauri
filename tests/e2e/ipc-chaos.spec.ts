@@ -45,7 +45,7 @@ test("invoice status action retries after IPC error clears", async ({
 }) => {
   await page.goto("/invoices/new");
   await page.getByLabel("Invoice #").fill("INV-CHAOS-1");
-  await page.getByRole("button", { name: "Save draft" }).click();
+  await page.getByTestId("invoice-new-save-draft").click();
   await expect(page).toHaveURL(/\/invoices\/\d+$/);
 
   await page.evaluate(() => {
@@ -61,7 +61,7 @@ test("invoice status action retries after IPC error clears", async ({
       "mock transient status failure",
     );
   });
-  await page.getByRole("button", { name: "Mark sent" }).click();
+  await page.getByTestId("invoice-mark-sent").click();
   await expect(page.getByText("mock transient status failure")).toBeVisible();
   await expect(page.getByText(/Status: draft/i)).toBeVisible();
 
@@ -75,7 +75,7 @@ test("invoice status action retries after IPC error clears", async ({
     ).__E2E_MOCK__;
     controls?.setCommandError("invoice_set_status", null);
   });
-  await page.getByRole("button", { name: "Mark sent" }).click();
+  await page.getByTestId("invoice-mark-sent").click();
   await expect(page.getByText(/Status: sent/i)).toBeVisible();
 });
 
@@ -94,7 +94,7 @@ test("backup action recovers from transient IPC failure", async ({ page }) => {
       "mock transient backup failure",
     );
   });
-  await page.getByRole("button", { name: "Backup to file…" }).click();
+  await page.getByTestId("settings-backup").click();
   await expect(page.getByText("mock transient backup failure")).toBeVisible();
 
   await page.evaluate(() => {
@@ -107,6 +107,6 @@ test("backup action recovers from transient IPC failure", async ({ page }) => {
     ).__E2E_MOCK__;
     controls?.setCommandError("db_backup_vacuum", null);
   });
-  await page.getByRole("button", { name: "Backup to file…" }).click();
+  await page.getByTestId("settings-backup").click();
   await expect(page.getByText("Backup saved")).toBeVisible();
 });

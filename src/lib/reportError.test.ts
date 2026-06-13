@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetLastRequestId, setLastRequestId } from "./correlation";
 import { reportError } from "./reportError";
 
 const { warnMock, captureMock } = vi.hoisted(() => ({
@@ -22,6 +23,7 @@ describe("reportError", () => {
   beforeEach(() => {
     warnMock.mockClear();
     captureMock.mockClear();
+    resetLastRequestId();
   });
 
   afterEach(() => {
@@ -38,5 +40,18 @@ describe("reportError", () => {
       "AccountsPage.load",
     );
     expect(notify).toHaveBeenCalledWith("db down");
+  });
+
+  it("includes last IPC request id when available", () => {
+    setLastRequestId("abc123");
+    const notify = vi.fn();
+    reportError("AccountsPage.load", new Error("db down"), notify);
+    expect(warnMock).toHaveBeenCalledWith(
+      "AccountsPage.load rid=abc123: db down",
+    );
+    expect(captureMock).toHaveBeenCalledWith(
+      expect.any(Error),
+      "AccountsPage.load rid=abc123",
+    );
   });
 });

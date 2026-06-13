@@ -3,12 +3,15 @@ import { Link, useParams } from "react-router-dom";
 import * as api from "../api/tauri";
 import type { JsonObject } from "../api/tauri";
 import { formatMoneyMinor } from "../lib/money";
+import { logContext } from "../lib/logContext";
 import { useToast } from "../context/ToastContext";
 
 type InvDetailData = {
   header: JsonObject;
   lines: JsonObject[];
 };
+
+const PAGE = "InvoiceDetailPage";
 
 export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,7 +27,7 @@ export function InvoiceDetailPage() {
         lines: d.lines as JsonObject[],
       });
     } catch (e) {
-      pushApiError(e, "InvoiceDetailPage");
+      pushApiError(e, logContext(PAGE, "load"));
     }
   }, [invoiceId, pushApiError]);
 
@@ -53,13 +56,14 @@ export function InvoiceDetailPage() {
         {status === "draft" && (
           <button
             type="button"
+            data-testid="invoice-mark-sent"
             onClick={async () => {
               try {
                 await api.invoiceSetStatus(invoiceId, "sent");
                 push("success", "Marked sent");
                 await load();
               } catch (e) {
-                pushApiError(e, "InvoiceDetailPage");
+                pushApiError(e, logContext(PAGE, "setStatus"));
               }
             }}
           >
@@ -69,13 +73,14 @@ export function InvoiceDetailPage() {
         {status === "sent" && !h.journalId && (
           <button
             type="button"
+            data-testid="invoice-post-gl"
             onClick={async () => {
               try {
                 await api.invoicePost(invoiceId);
                 push("success", "Posted to GL");
                 await load();
               } catch (e) {
-                pushApiError(e, "InvoiceDetailPage");
+                pushApiError(e, logContext(PAGE, "post"));
               }
             }}
           >

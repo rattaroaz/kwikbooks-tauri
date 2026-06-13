@@ -5,6 +5,7 @@ import { todayISODate } from "../lib/dates";
 import { parseMinorInt } from "../lib/money";
 import { useToast } from "../context/ToastContext";
 import { requireValidISODate } from "../lib/validateDate";
+import { logContext } from "../lib/logContext";
 import { createScopedLogger } from "../lib/logger";
 
 type Vendor = { id: number; displayName: string };
@@ -16,6 +17,7 @@ type AccountRow = {
 };
 
 const log = createScopedLogger("BillNew");
+const PAGE = "BillNewPage";
 
 export function BillNewPage() {
   const nav = useNavigate();
@@ -47,7 +49,7 @@ export function BillNewPage() {
           setExpenseId(first.id);
         }
       } catch (e) {
-        pushApiError(e, "BillNewPage");
+        pushApiError(e, logContext(PAGE, "load"));
       }
     })();
   }, [pushApiError]);
@@ -82,7 +84,7 @@ export function BillNewPage() {
       push("success", "Bill created (draft)");
       nav(`/bills/${id}`);
     } catch (err) {
-      pushApiError(err, "BillNewPage");
+      pushApiError(err, logContext(PAGE, "create"));
     }
   }
 
@@ -158,7 +160,9 @@ export function BillNewPage() {
             onChange={(e) => setAmountStr(e.target.value)}
           />
         </label>
-        <button type="submit">Save draft</button>
+        <button type="submit" data-testid="bill-new-save-draft">
+          Save draft
+        </button>
       </form>
     </div>
   );

@@ -701,6 +701,22 @@ button[type="submit"]:hover {
   font-size: 0.85rem;
 }
 
+.kb-logs-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #3a4156;
+  background: #1f232e;
+  color: #e8e8ec;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.kb-logs-search-input::placeholder {
+  color: #6b7288;
+}
+
 .kb-logs-error {
   margin: 0;
   padding: 0.5rem 1rem;

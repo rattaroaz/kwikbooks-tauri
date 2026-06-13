@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../api/tauri";
 import type { LogLine } from "../api/tauri";
 import {
@@ -7,7 +7,12 @@ import {
   LOG_LEVELS,
   type LogLevelFilter,
 } from "../lib/logLevels";
-import { errorMessage } from "../types/errors";
+import {
+  filterLogLinesBySearch,
+  sortLogLinesByTimestamp,
+} from "../lib/logParse";
+import { reportError } from "../lib/reportError";
+import { logContext } from "../lib/logContext";
 
 type Props = {
   onClose: () => void;
@@ -26,6 +31,7 @@ export function LogViewerPanel({ onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [levelFilter, setLevelFilter] = useState<LogLevelFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const bodyRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
 
@@ -37,7 +43,9 @@ export function LogViewerPanel({ onClose }: Props) {
       setLogDir(res.logDir);
       setLines(res.lines);
     } catch (e) {
-      setError(errorMessage(e));
+      reportError(logContext("LogViewerPanel", "load"), e, (msg) =>
+        setError(msg),
+      );
     } finally {
       setLoading(false);
     }
@@ -62,7 +70,11 @@ export function LogViewerPanel({ onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const visibleLines = filterLogLines(lines, levelFilter);
+  const visibleLines = useMemo(() => {
+    const byLevel = filterLogLines(lines, levelFilter);
+    const bySearch = filterLogLinesBySearch(byLevel, searchQuery);
+    return sortLogLinesByTimestamp(bySearch);
+  }, [lines, levelFilter, searchQuery]);
 
   useEffect(() => {
     const el = bodyRef.current;
@@ -138,6 +150,21 @@ export function LogViewerPanel({ onClose }: Props) {
         </select>
       </div>
 
+      <div className="kb-logs-filters" data-testid="logs-search-filters">
+        <label className="kb-logs-level-field" htmlFor="kb-logs-search">
+          Search seq / rid
+        </label>
+        <input
+          id="kb-logs-search"
+          type="search"
+          className="kb-logs-search-input"
+          data-testid="logs-search"
+          placeholder="e.g. 42 or req-abc"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
       {error ? (
         <p className="kb-logs-error" data-testid="logs-error">
           {error}
@@ -154,7 +181,11 @@ export function LogViewerPanel({ onClose }: Props) {
           <p className="kb-muted">Loading logs…</p>
         ) : null}
         {!loading && visibleLines.length === 0 ? (
-          <p className="kb-muted">No log entries for the selected levels.</p>
+          <p className="kb-muted">
+            {searchQuery.trim()
+              ? "No log entries match the search."
+              : "No log entries for the selected levels."}
+          </p>
         ) : null}
         {visibleLines.map((entry, index) => (
           <div

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import * as api from "../api/tauri";
 import { formatMoneyMinor } from "../lib/money";
+import { logContext } from "../lib/logContext";
 import { useToast } from "../context/ToastContext";
 
 type InvRow = {
@@ -25,7 +26,7 @@ export function InvoicesPage() {
       const data = (await api.listInvoices()) as InvRow[];
       setRows(data);
     } catch (e) {
-      pushApiError(e, "InvoicesPage");
+      pushApiError(e, logContext("InvoicesPage", "load"));
     } finally {
       setLoading(false);
     }

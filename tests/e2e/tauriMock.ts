@@ -383,6 +383,11 @@ export async function installTauriMock(page: Page): Promise<void> {
                 level: "warn",
                 line: "[2026-01-01][12:00:01][WARN] [Settings] check started",
               },
+              {
+                source: "app",
+                level: "info",
+                line: "[2026-01-01][12:00:02][INFO] invoke_ok seq=99 rid=e2e-mock",
+              },
             ],
           });
         case "db_backup_vacuum":
@@ -392,12 +397,41 @@ export async function installTauriMock(page: Page): Promise<void> {
           return Promise.resolve({ ok: true, migrationVersion: 4 });
         case "db_restore_apply":
           return Promise.resolve();
+        case "ipc_context_set":
+          return Promise.resolve();
+        case "db_migrate":
+          return Promise.resolve({
+            migrationVersionBefore: 4,
+            migrationVersionAfter: 4,
+          });
+        case "account_get":
+          return Promise.resolve({
+            id: Number(args.id),
+            code: "1000",
+            name: "Cash",
+            accountType: "asset",
+          });
+        case "import_quickbooks_file":
+          return Promise.resolve({
+            formatDetected: "iif",
+            accountsCreated: 0,
+            customersCreated: 0,
+            vendorsCreated: 0,
+            itemsCreated: 0,
+            rowsSkipped: 0,
+            warnings: [],
+          });
         case "plugin:dialog|save":
           return Promise.resolve(state.backupPath);
         case "plugin:dialog|open":
           return Promise.resolve(state.backupPath);
         default:
-          return Promise.resolve(null);
+          if (command.startsWith("plugin:")) {
+            return Promise.resolve(null);
+          }
+          return Promise.reject(
+            new Error(`E2E mock: unhandled IPC command "${command}"`),
+          );
       }
     }
 

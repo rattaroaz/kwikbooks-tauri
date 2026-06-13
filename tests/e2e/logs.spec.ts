@@ -32,6 +32,12 @@ test("settings view logs opens right panel with level filters", async ({
     "check started",
   );
 
+  await page.getByTestId("logs-search").fill("e2e-mock");
+  await expect(page.getByTestId("logs-body")).toContainText("seq=99");
+  await expect(page.getByTestId("logs-body")).not.toContainText(
+    "Kwikbooks starting",
+  );
+
   await page.getByTestId("logs-close").click();
   await expect(panel).toHaveCount(0);
 });

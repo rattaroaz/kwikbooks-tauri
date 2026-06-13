@@ -24,6 +24,38 @@ const DEFAULT_MAX_LINES: usize = 500;
 const MAX_ALLOWED_LINES: usize = 5_000;
 const TAIL_READ_BYTES: u64 = 512_000;
 
+/// Sort key from `[YYYY-MM-DD][HH:MM:SS]` plugin-log prefix (lexicographic = chronological).
+fn parse_timestamp_sort_key(line: &str) -> Option<&str> {
+    if line.len() < 22 {
+        return None;
+    }
+    let b = line.as_bytes();
+    if b[0] != b'['
+        || b[5] != b'-'
+        || b[8] != b'-'
+        || b[11] != b']'
+        || b[12] != b'['
+        || b[15] != b':'
+        || b[18] != b':'
+        || b[21] != b']'
+    {
+        return None;
+    }
+    Some(&line[..22])
+}
+
+fn compare_log_lines(a: &LogLine, b: &LogLine) -> std::cmp::Ordering {
+    match (
+        parse_timestamp_sort_key(&a.line),
+        parse_timestamp_sort_key(&b.line),
+    ) {
+        (Some(ta), Some(tb)) => ta.cmp(tb),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => a.line.cmp(&b.line),
+    }
+}
+
 fn parse_level(line: &str) -> String {
     for level in ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"] {
         if line.contains(&format!("[{level}]")) {
@@ -111,7 +143,7 @@ fn read_source_lines(dir: &Path, prefix: &str, source: &str, max_lines: usize) -
             }
         }
     }
-    merged.sort_by(|a, b| a.line.cmp(&b.line));
+    merged.sort_by(compare_log_lines);
     if merged.len() > max_lines {
         merged = merged.split_off(merged.len() - max_lines);
     }
@@ -134,7 +166,7 @@ pub fn logs_read(
         })?;
         let mut lines = read_source_lines(&log_dir, "kwikbooks", "app", max_lines);
         lines.extend(read_source_lines(&log_dir, "webview", "webview", max_lines));
-        lines.sort_by(|a, b| a.line.cmp(&b.line));
+        lines.sort_by(compare_log_lines);
         if lines.len() > max_lines {
             lines = lines.split_off(lines.len() - max_lines);
         }
@@ -148,6 +180,30 @@ pub fn logs_read(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parse_timestamp_sort_key_reads_bracketed_prefix() {
+        let line = "[2026-01-01][12:00:00][INFO] invoke_ok seq=1";
+        assert_eq!(
+            parse_timestamp_sort_key(line),
+            Some("[2026-01-01][12:00:00]")
+        );
+    }
+
+    #[test]
+    fn compare_log_lines_orders_by_timestamp() {
+        let early = LogLine {
+            source: "app".into(),
+            level: "info".into(),
+            line: "[2026-01-01][12:00:00][INFO] first".into(),
+        };
+        let late = LogLine {
+            source: "app".into(),
+            level: "info".into(),
+            line: "[2026-01-01][12:00:01][INFO] second".into(),
+        };
+        assert_eq!(compare_log_lines(&early, &late), std::cmp::Ordering::Less);
+    }
 
     #[test]
     fn parse_level_reads_bracketed_level() {

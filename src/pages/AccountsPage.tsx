@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import * as api from "../api/tauri";
 import { PageLoading } from "../components/PageLoading";
 import { formatMoneyMinor } from "../lib/money";
+import { logContext } from "../lib/logContext";
 import { useToast } from "../context/ToastContext";
 
 type Row = {
@@ -21,6 +22,8 @@ const ACCOUNT_TYPES = [
   "expense",
 ] as const;
 
+const PAGE = "AccountsPage";
+
 export function AccountsPage() {
   const { push, pushApiError } = useToast();
   const [rows, setRows] = useState<Row[]>([]);
@@ -39,7 +42,7 @@ export function AccountsPage() {
       const data = (await api.accountList(filter)) as Row[];
       setRows(data);
     } catch (e) {
-      pushApiError(e, "AccountsPage");
+      pushApiError(e, logContext(PAGE, "load"));
     } finally {
       setLoading(false);
     }
@@ -87,7 +90,10 @@ export function AccountsPage() {
       resetForm();
       await load();
     } catch (err) {
-      pushApiError(err, "AccountsPage");
+      pushApiError(
+        err,
+        logContext(PAGE, editingId === null ? "create" : "update"),
+      );
     }
   }
 
@@ -111,7 +117,7 @@ export function AccountsPage() {
       }
       await load();
     } catch (err) {
-      pushApiError(err, "AccountsPage");
+      pushApiError(err, logContext(PAGE, "deactivate"));
     }
   }
 
@@ -166,7 +172,7 @@ export function AccountsPage() {
           Bank / cash account
         </label>
         <div className="kb-row">
-          <button type="submit">
+          <button type="submit" data-testid="accounts-submit">
             {editingId === null ? "Create" : "Save changes"}
           </button>
           {editingId !== null && (

@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useState } from "react";
 import * as api from "../api/tauri";
 import type { JsonObject } from "../api/tauri";
 import { useToast } from "../context/ToastContext";
+import { logContext } from "../lib/logContext";
 import { createScopedLogger } from "../lib/logger";
 import { APP_VERSION } from "../lib/constants";
 import { useLogViewer } from "../context/LogViewerContext";
@@ -13,6 +14,7 @@ const QB_IMPORT_FILTER = [
   { name: "QuickBooks export", extensions: ["iif", "csv", "txt"] },
 ];
 const log = createScopedLogger("Settings");
+const PAGE = "SettingsPage";
 
 export function SettingsPage() {
   const { push, pushApiError } = useToast();
@@ -35,7 +37,7 @@ export function SettingsPage() {
         setNextInv(String(c.nextInvoiceNumber ?? "1000"));
         setNextBill(String(c.nextBillNumber ?? "1000"));
       } catch (e) {
-        pushApiError(e, "SettingsPage");
+        pushApiError(e, logContext(PAGE, "load"));
       }
     })();
   }, [pushApiError]);
@@ -53,7 +55,7 @@ export function SettingsPage() {
       void log.info("backup completed (vacuum into)");
       push("success", "Backup saved");
     } catch (e) {
-      pushApiError(e, "SettingsPage");
+      pushApiError(e, logContext(PAGE, "backup"));
     }
   }
 
@@ -84,7 +86,7 @@ export function SettingsPage() {
         push("info", s.warnings.slice(0, 5).join(" "));
       }
     } catch (e) {
-      pushApiError(e, "SettingsPage");
+      pushApiError(e, logContext(PAGE, "importQuickbooks"));
     }
   }
 
@@ -114,7 +116,7 @@ export function SettingsPage() {
         "Database restored. Reload the app if numbers look stale.",
       );
     } catch (e) {
-      pushApiError(e, "SettingsPage");
+      pushApiError(e, logContext(PAGE, "restore"));
     }
   }
 
@@ -132,7 +134,7 @@ export function SettingsPage() {
       void log.info("company profile saved");
       push("success", "Company saved");
     } catch (err) {
-      pushApiError(err, "SettingsPage");
+      pushApiError(err, logContext(PAGE, "save"));
     }
   }
 
@@ -183,7 +185,9 @@ export function SettingsPage() {
             onChange={(e) => setNextBill(e.target.value)}
           />
         </label>
-        <button type="submit">Save</button>
+        <button type="submit" data-testid="settings-save">
+          Save
+        </button>
       </form>
 
       <section className="kb-settings-extra">
@@ -255,6 +259,7 @@ export function SettingsPage() {
           <button
             type="button"
             className="kb-button-secondary"
+            data-testid="settings-backup"
             onClick={onBackup}
           >
             Backup to file…
@@ -262,6 +267,7 @@ export function SettingsPage() {
           <button
             type="button"
             className="kb-button-secondary"
+            data-testid="settings-restore"
             onClick={onRestore}
           >
             Restore from backup…

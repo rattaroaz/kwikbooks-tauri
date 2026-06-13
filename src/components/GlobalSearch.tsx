@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import * as api from "../api/tauri";
 import type { SearchHit } from "../api/tauri";
-import { errorMessage } from "../types/errors";
+import { reportError } from "../lib/reportError";
+import { logContext } from "../lib/logContext";
 
 const KIND_LABEL: Record<string, string> = {
   company: "Company",
@@ -52,7 +53,9 @@ export function GlobalSearch() {
       const res = await api.globalSearch(t, 15);
       setHits(res.hits);
     } catch (e) {
-      setError(errorMessage(e));
+      reportError(logContext("GlobalSearch", "search"), e, (msg) =>
+        setError(msg),
+      );
       setHits([]);
     } finally {
       setLoading(false);

@@ -4,6 +4,7 @@ import * as api from "../api/tauri";
 import { todayISODate } from "../lib/dates";
 import { parseMinorInt } from "../lib/money";
 import { requireValidISODate } from "../lib/validateDate";
+import { logContext } from "../lib/logContext";
 import { useToast } from "../context/ToastContext";
 
 type Vendor = { id: number; displayName: string };
@@ -13,6 +14,8 @@ type BankAccount = {
   name: string;
   isBankCash: boolean;
 };
+
+const PAGE = "PayBillPage";
 
 export function PayBillPage() {
   const { push, pushApiError } = useToast();
@@ -43,7 +46,7 @@ export function PayBillPage() {
           setBankAccountId(bankRows[0].id);
         }
       } catch (e) {
-        pushApiError(e, "PayBillPage");
+        pushApiError(e, logContext(PAGE, "load"));
       }
     })();
   }, [pushApiError]);
@@ -84,7 +87,7 @@ export function PayBillPage() {
       setBillIdStr("");
       setMemo("");
     } catch (err) {
-      pushApiError(err, "PayBillPage");
+      pushApiError(err, logContext(PAGE, "submit"));
     }
   }
 
@@ -158,7 +161,7 @@ export function PayBillPage() {
           Memo
           <input value={memo} onChange={(e) => setMemo(e.target.value)} />
         </label>
-        <button type="submit" disabled={banks.length === 0}>
+        <button type="submit" data-testid="pay-bill-submit" disabled={banks.length === 0}>
           Record &amp; post
         </button>
       </form>

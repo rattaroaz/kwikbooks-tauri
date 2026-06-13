@@ -3,12 +3,15 @@ import { Link, useParams } from "react-router-dom";
 import * as api from "../api/tauri";
 import type { JsonObject } from "../api/tauri";
 import { formatMoneyMinor } from "../lib/money";
+import { logContext } from "../lib/logContext";
 import { useToast } from "../context/ToastContext";
 
 type BillDetailData = {
   header: JsonObject;
   lines: JsonObject[];
 };
+
+const PAGE = "BillDetailPage";
 
 export function BillDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,7 +27,7 @@ export function BillDetailPage() {
         lines: d.lines as JsonObject[],
       });
     } catch (e) {
-      pushApiError(e, "BillDetailPage");
+      pushApiError(e, logContext(PAGE, "load"));
     }
   }, [billId, pushApiError]);
 
@@ -52,13 +55,14 @@ export function BillDetailPage() {
         {status === "draft" && (
           <button
             type="button"
+            data-testid="bill-mark-open"
             onClick={async () => {
               try {
                 await api.billSetStatus(billId, "open");
                 push("success", "Marked open");
                 await load();
               } catch (e) {
-                pushApiError(e, "BillDetailPage");
+                pushApiError(e, logContext(PAGE, "setStatus"));
               }
             }}
           >
@@ -68,13 +72,14 @@ export function BillDetailPage() {
         {status === "open" && !h.journalId && (
           <button
             type="button"
+            data-testid="bill-post-gl"
             onClick={async () => {
               try {
                 await api.billPost(billId);
                 push("success", "Posted to GL");
                 await load();
               } catch (e) {
-                pushApiError(e, "BillDetailPage");
+                pushApiError(e, logContext(PAGE, "post"));
               }
             }}
           >

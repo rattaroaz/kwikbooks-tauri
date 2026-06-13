@@ -1,7 +1,7 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { debug, warn } from "@tauri-apps/plugin-log";
 import { env } from "../config/env";
-import { createRequestId } from "../lib/correlation";
+import { createRequestId, setLastRequestId } from "../lib/correlation";
 import { summarizeInvokePayload } from "../lib/logRedact";
 
 const ERR_LOG_MAX = 500;
@@ -27,6 +27,7 @@ export async function invoke<T>(
   args?: Record<string, unknown>,
 ): Promise<T> {
   const rid = createRequestId();
+  setLastRequestId(rid);
   await setIpcContext(rid);
   const start = performance.now();
   const threshold = env.slowIpcMs;

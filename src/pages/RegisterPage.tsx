@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import * as api from "../api/tauri";
+import { logContext } from "../lib/logContext";
 import { useToast } from "../context/ToastContext";
 
 type JRow = {
@@ -19,7 +20,7 @@ export function RegisterPage() {
       const data = (await api.listJournals(300)) as JRow[];
       setRows(data);
     } catch (e) {
-      pushApiError(e, "RegisterPage");
+      pushApiError(e, logContext("RegisterPage", "load"));
     }
   }, [pushApiError]);
 

@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import * as api from "../api/tauri";
+import { logContext } from "../lib/logContext";
 import { useToast } from "../context/ToastContext";
 
 type Vendor = {
@@ -7,6 +8,8 @@ type Vendor = {
   displayName: string;
   email?: string | null;
 };
+
+const PAGE = "VendorsPage";
 
 export function VendorsPage() {
   const { push, pushApiError } = useToast();
@@ -18,7 +21,7 @@ export function VendorsPage() {
       const data = (await api.listVendors()) as Vendor[];
       setRows(data);
     } catch (e) {
-      pushApiError(e, "VendorsPage");
+      pushApiError(e, logContext(PAGE, "load"));
     }
   }, [pushApiError]);
 
@@ -38,7 +41,7 @@ export function VendorsPage() {
       setName("");
       await load();
     } catch (err) {
-      pushApiError(err, "VendorsPage");
+      pushApiError(err, logContext(PAGE, "create"));
     }
   }
 

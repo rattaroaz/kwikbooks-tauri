@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import * as api from "../api/tauri";
 import { formatMoneyMinor } from "../lib/money";
+import { logContext } from "../lib/logContext";
 import { useToast } from "../context/ToastContext";
 
 type Row = {
@@ -25,7 +26,7 @@ export function BillsPage() {
       const data = (await api.listBills()) as Row[];
       setRows(data);
     } catch (e) {
-      pushApiError(e, "BillsPage");
+      pushApiError(e, logContext("BillsPage", "load"));
     } finally {
       setLoading(false);
     }

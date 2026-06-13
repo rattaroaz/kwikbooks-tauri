@@ -4,11 +4,14 @@ import type { JsonObject } from "../api/tauri";
 import { downloadTextFile, rowsToCsv } from "../lib/csv";
 import { todayISODate } from "../lib/dates";
 import { formatMoneyMinor, sumMinor } from "../lib/money";
+import { logContext } from "../lib/logContext";
 import { useToast } from "../context/ToastContext";
 
 type Tab = "pl" | "bs" | "tb" | "ar" | "ap" | "gl";
 
 type AccountOption = { id: number; code: string; name: string };
+
+const PAGE = "ReportsPage";
 
 export function ReportsPage() {
   const { push, pushApiError } = useToast();
@@ -31,7 +34,7 @@ export function ReportsPage() {
       setPl(r);
       push("success", "Profit & loss loaded");
     } catch (e) {
-      pushApiError(e, "ReportsPage");
+      pushApiError(e, logContext(PAGE, "loadPl"));
     }
   }
 
@@ -41,7 +44,7 @@ export function ReportsPage() {
       setBs(r);
       push("success", "Balance sheet loaded");
     } catch (e) {
-      pushApiError(e, "ReportsPage");
+      pushApiError(e, logContext(PAGE, "loadBs"));
     }
   }
 
@@ -51,7 +54,7 @@ export function ReportsPage() {
       setTb(r);
       push("success", "Trial balance loaded");
     } catch (e) {
-      pushApiError(e, "ReportsPage");
+      pushApiError(e, logContext(PAGE, "loadTb"));
     }
   }
 
@@ -61,7 +64,7 @@ export function ReportsPage() {
       setAr(r);
       push("success", "AR summary loaded");
     } catch (e) {
-      pushApiError(e, "ReportsPage");
+      pushApiError(e, logContext(PAGE, "loadAr"));
     }
   }
 
@@ -71,7 +74,7 @@ export function ReportsPage() {
       setAp(r);
       push("success", "AP summary loaded");
     } catch (e) {
-      pushApiError(e, "ReportsPage");
+      pushApiError(e, logContext(PAGE, "loadAp"));
     }
   }
 
@@ -85,7 +88,7 @@ export function ReportsPage() {
         setGlAccountId(rows[0].id);
       }
     } catch (e) {
-      pushApiError(e, "ReportsPage");
+      pushApiError(e, logContext(PAGE, "loadGlAccounts"));
     }
   }
 
@@ -99,7 +102,7 @@ export function ReportsPage() {
       setGl(r);
       push("success", "General ledger loaded");
     } catch (e) {
-      pushApiError(e, "ReportsPage");
+      pushApiError(e, logContext(PAGE, "loadGl"));
     }
   }
 
@@ -239,7 +242,11 @@ export function ReportsPage() {
               To
               <input value={to} onChange={(e) => setTo(e.target.value)} />
             </label>
-            <button type="button" onClick={() => void loadPl()}>
+            <button
+              type="button"
+              data-testid="reports-pl-run"
+              onClick={() => void loadPl()}
+            >
               Run
             </button>
             <button type="button" onClick={csvPl} disabled={!pl}>

@@ -4,6 +4,7 @@ import * as api from "../api/tauri";
 import { todayISODate } from "../lib/dates";
 import { parseMinorInt } from "../lib/money";
 import { requireValidISODate } from "../lib/validateDate";
+import { logContext } from "../lib/logContext";
 import { useToast } from "../context/ToastContext";
 
 type Customer = { id: number; displayName: string };
@@ -13,6 +14,8 @@ type BankAccount = {
   name: string;
   isBankCash: boolean;
 };
+
+const PAGE = "ReceivePaymentPage";
 
 export function ReceivePaymentPage() {
   const { push, pushApiError } = useToast();
@@ -43,7 +46,7 @@ export function ReceivePaymentPage() {
           setBankAccountId(bankRows[0].id);
         }
       } catch (e) {
-        pushApiError(e, "ReceivePaymentPage");
+        pushApiError(e, logContext(PAGE, "load"));
       }
     })();
   }, [pushApiError]);
@@ -85,7 +88,7 @@ export function ReceivePaymentPage() {
       setInvoiceIdStr("");
       setMemo("");
     } catch (err) {
-      pushApiError(err, "ReceivePaymentPage");
+      pushApiError(err, logContext(PAGE, "submit"));
     }
   }
 
@@ -159,7 +162,7 @@ export function ReceivePaymentPage() {
           Memo
           <input value={memo} onChange={(e) => setMemo(e.target.value)} />
         </label>
-        <button type="submit" disabled={banks.length === 0}>
+        <button type="submit" data-testid="receive-payment-submit" disabled={banks.length === 0}>
           Record &amp; post
         </button>
       </form>

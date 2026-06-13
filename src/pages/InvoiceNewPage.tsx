@@ -5,11 +5,13 @@ import { todayISODate } from "../lib/dates";
 import { parseMinorInt } from "../lib/money";
 import { useToast } from "../context/ToastContext";
 import { requireValidISODate } from "../lib/validateDate";
+import { logContext } from "../lib/logContext";
 import { createScopedLogger } from "../lib/logger";
 
 type Customer = { id: number; displayName: string };
 
 const log = createScopedLogger("InvoiceNew");
+const PAGE = "InvoiceNewPage";
 
 export function InvoiceNewPage() {
   const nav = useNavigate();
@@ -33,7 +35,7 @@ export function InvoiceNewPage() {
           setCustomerId(first.id);
         }
       } catch (e) {
-        pushApiError(e, "InvoiceNewPage");
+        pushApiError(e, logContext(PAGE, "load"));
       }
     })();
   }, [pushApiError]);
@@ -74,7 +76,7 @@ export function InvoiceNewPage() {
       push("success", "Invoice created (draft)");
       nav(`/invoices/${id}`);
     } catch (err) {
-      pushApiError(err, "InvoiceNewPage");
+      pushApiError(err, logContext(PAGE, "create"));
     }
   }
 
@@ -137,7 +139,9 @@ export function InvoiceNewPage() {
             />
           </label>
         </fieldset>
-        <button type="submit">Save draft</button>
+        <button type="submit" data-testid="invoice-new-save-draft">
+          Save draft
+        </button>
       </form>
     </div>
   );
