@@ -1,6 +1,5 @@
 /** Bracketed timestamp from Tauri plugin-log, e.g. `[2026-01-01][12:00:00][INFO] …`. */
-const BRACKET_TS =
-  /\[(\d{4}-\d{2}-\d{2})\]\[(\d{2}:\d{2}:\d{2})(?:\.\d+)?\]/;
+const BRACKET_TS = /\[(\d{4}-\d{2}-\d{2})\]\[(\d{2}:\d{2}:\d{2})(?:\.\d+)?\]/;
 
 const SEQ_VALUE = /\bseq=(\d+)/i;
 const RID_VALUE = /\brid=([^\s]+)/i;

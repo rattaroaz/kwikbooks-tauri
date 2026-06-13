@@ -30,9 +30,9 @@ describe("Dashboard", () => {
     });
     expect(screen.getByText("Invoices").parentElement).toHaveTextContent("2");
     expect(screen.getByText("Bills").parentElement).toHaveTextContent("1");
-    expect(screen.getByText("Open AR (customers)").parentElement).toHaveTextContent(
-      "2",
-    );
+    expect(
+      screen.getByText("Open AR (customers)").parentElement,
+    ).toHaveTextContent("2");
     expect(api.listInvoices).toHaveBeenCalled();
     expect(api.listBills).toHaveBeenCalled();
     expect(api.reportArOpen).toHaveBeenCalled();

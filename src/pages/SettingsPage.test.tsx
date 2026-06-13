@@ -139,7 +139,9 @@ describe("SettingsPage", () => {
     renderWithApp(<SettingsPage />);
     await screen.findByRole("button", { name: "Save" });
 
-    fireEvent.click(screen.getByRole("button", { name: /Choose export file/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Choose export file/i }),
+    );
 
     await waitFor(() => {
       expect(open).toHaveBeenCalled();

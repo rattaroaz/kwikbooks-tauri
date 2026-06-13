@@ -161,7 +161,11 @@ export function PayBillPage() {
           Memo
           <input value={memo} onChange={(e) => setMemo(e.target.value)} />
         </label>
-        <button type="submit" data-testid="pay-bill-submit" disabled={banks.length === 0}>
+        <button
+          type="submit"
+          data-testid="pay-bill-submit"
+          disabled={banks.length === 0}
+        >
           Record &amp; post
         </button>
       </form>
