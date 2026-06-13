@@ -15,7 +15,19 @@ permissions:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+            args: --bundles nsis,msi
+            needs_llvm: false
+          - arch: arm64
+            runner: windows-11-arm
+            args: --bundles nsis,msi
+            needs_llvm: true
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +39,13 @@ jobs:
       - run: npm ci
 
       - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install LLVM (Windows ARM64)
+        if: matrix.needs_llvm
+        shell: pwsh
+        run: |
+          choco install llvm -y
+          "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
       - name: Enable VBScript (WiX / MSI on Windows runner)
         shell: pwsh
@@ -71,7 +90,7 @@ jobs:
             "EOF"
           ) | Add-Content -Path $env:GITHUB_ENV -Encoding utf8
 
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -81,4 +100,4 @@ jobs:
           prerelease: false
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
-          args: --bundles nsis,msi
+          args: ${{ matrix.args }}

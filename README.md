@@ -68,7 +68,7 @@ Updates are **manual only** (Settings → **Check for updates**). The app fetche
 1. Bump version in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` (keep in sync).
 2. Commit and push to `main`.
 3. `git tag vX.Y.Z && git push origin vX.Y.Z`
-4. GitHub Actions **Release** workflow builds NSIS + MSI, uploads `latest.json` and `.sig` files.
+4. GitHub Actions **Release** workflow builds **x64** and **ARM64** Windows installers (NSIS + MSI each), uploads `latest.json` and `.sig` files.
 
 **Repository secrets** (required for signed releases):
 
