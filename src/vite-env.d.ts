@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="@testing-library/jest-dom/vitest" />
 
 interface ImportMetaEnv {
   /** `true` | `false` | `1` | `0` — controls dev-only tooling when `import.meta.env.DEV`. */
