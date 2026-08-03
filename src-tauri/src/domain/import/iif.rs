@@ -195,7 +195,9 @@ fn parse_invitem_row(headers: &[String], parts: &[&str]) -> Option<ParsedItem> {
     let price_s = header_index(headers, &["PRICE", "SALESPRICE"])
         .and_then(|i| parts.get(i + 1))
         .unwrap_or(&"");
-    let unit_price_minor = parse_money_minor(price_s).unwrap_or(0);
+    let unit_price_minor = parse_money_minor(price_s)
+        .map(i64::saturating_abs)
+        .unwrap_or(0);
 
     let income_account_name = header_index(headers, &["ACCNT", "INCACCNT", "INCOMEACCOUNT"])
         .and_then(|i| parts.get(i + 1))
@@ -221,6 +223,8 @@ fn map_qb_accnt_type(t: &str) -> (&'static str, bool) {
         "AP" | "CREDITCARD" | "OCLIAB" | "LTLIAB" | "LONGTERMLIABILITY" => "liability",
         "EQUITY" => "equity",
         "INC" | "OINC" => "income",
+        // Unknown QB types: bank-flagged codes stay assets; otherwise expense.
+        _ if bank => "asset",
         _ => "expense",
     };
     (kind, bank)
@@ -240,20 +244,33 @@ pub(crate) fn slug_code(name: &str) -> String {
 
 pub(crate) fn parse_money_minor(s: &str) -> Option<i64> {
     let mut t = s.trim().replace(['$', ',', ' '], "");
-    let neg = t.starts_with('-');
-    if neg {
+    let paren_neg = t.starts_with('(') && t.ends_with(')');
+    if paren_neg {
+        t = t[1..t.len().saturating_sub(1)].trim().to_string();
+    }
+    let neg = paren_neg || t.starts_with('-');
+    if t.starts_with('-') {
         t = t.trim_start_matches('-').to_string();
     }
     if t.is_empty() {
         return None;
     }
     let parts: Vec<&str> = t.split('.').collect();
-    let whole: i64 = parts.first()?.parse().ok()?;
+    let mut whole: i64 = parts.first()?.parse().ok()?;
     let frac = parts.get(1).copied().unwrap_or("0");
-    let frac_s: String = frac.chars().take(2).collect();
-    let frac_s = format!("{frac_s:0<2}");
-    let frac_n: i64 = frac_s.parse().ok()?;
-    let v = whole * 100 + frac_n;
+    let digits: Vec<char> = frac.chars().filter(|c| c.is_ascii_digit()).collect();
+    let d0 = digits.first().copied().unwrap_or('0');
+    let d1 = digits.get(1).copied().unwrap_or('0');
+    let round_up = digits.get(2).is_some_and(|c| *c >= '5');
+    let mut cents: i64 = format!("{d0}{d1}").parse().ok()?;
+    if round_up {
+        cents += 1;
+        if cents >= 100 {
+            whole = whole.saturating_add(1);
+            cents -= 100;
+        }
+    }
+    let v = whole.saturating_mul(100).saturating_add(cents);
     Some(if neg { -v } else { v })
 }
 
@@ -271,5 +288,15 @@ mod tests {
         assert!(b.accounts[0].is_bank_cash);
         assert_eq!(b.items.len(), 1);
         assert_eq!(b.items[0].unit_price_minor, 1250);
+    }
+
+    #[test]
+    fn parse_money_minor_rounds_half_up() {
+        assert_eq!(parse_money_minor("12.50"), Some(1250));
+        assert_eq!(parse_money_minor("12.994"), Some(1299));
+        assert_eq!(parse_money_minor("12.995"), Some(1300));
+        assert_eq!(parse_money_minor("12.999"), Some(1300));
+        assert_eq!(parse_money_minor("(12.50)"), Some(-1250));
+        assert_eq!(parse_money_minor("-$12.50"), Some(-1250));
     }
 }

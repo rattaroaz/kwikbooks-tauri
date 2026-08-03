@@ -5,6 +5,7 @@ import { downloadTextFile, rowsToCsv } from "../lib/csv";
 import { todayISODate } from "../lib/dates";
 import { formatMoneyMinor, sumMinor } from "../lib/money";
 import { logContext } from "../lib/logContext";
+import { requireValidISODate } from "../lib/validateDate";
 import { useToast } from "../context/ToastContext";
 
 type Tab = "pl" | "bs" | "tb" | "ar" | "ap" | "gl";
@@ -28,7 +29,24 @@ export function ReportsPage() {
   const [glAccounts, setGlAccounts] = useState<AccountOption[]>([]);
   const [gl, setGl] = useState<unknown[] | null>(null);
 
+  function requireRange(): boolean {
+    const fromErr = requireValidISODate("From date", from);
+    if (fromErr) {
+      push("error", fromErr);
+      return false;
+    }
+    const toErr = requireValidISODate("To date", to);
+    if (toErr) {
+      push("error", toErr);
+      return false;
+    }
+    return true;
+  }
+
   async function loadPl() {
+    if (!requireRange()) {
+      return;
+    }
     try {
       const r = await api.reportProfitLoss(from, to);
       setPl(r);
@@ -39,6 +57,11 @@ export function ReportsPage() {
   }
 
   async function loadBs() {
+    const asOfErr = requireValidISODate("As-of date", asOf);
+    if (asOfErr) {
+      push("error", asOfErr);
+      return;
+    }
     try {
       const r = await api.reportBalanceSheet(asOf);
       setBs(r);
@@ -49,6 +72,9 @@ export function ReportsPage() {
   }
 
   async function loadTb() {
+    if (!requireRange()) {
+      return;
+    }
     try {
       const r = await api.reportTrialBalance(from, to);
       setTb(r);
@@ -95,6 +121,9 @@ export function ReportsPage() {
   async function loadGl() {
     if (glAccountId === 0) {
       push("error", "Select an account for the general ledger.");
+      return;
+    }
+    if (!requireRange()) {
       return;
     }
     try {
@@ -386,7 +415,7 @@ export function ReportsPage() {
       {tab === "ar" && (
         <section className="kb-report">
           <button type="button" onClick={() => void loadAr()}>
-            Load AR (sent invoices)
+            Load AR (posted invoices − payments)
           </button>
           <button type="button" onClick={csvAr} disabled={!ar}>
             Export CSV
@@ -415,7 +444,7 @@ export function ReportsPage() {
       {tab === "ap" && (
         <section className="kb-report">
           <button type="button" onClick={() => void loadAp()}>
-            Load AP (open bills)
+            Load AP (posted bills − payments)
           </button>
           {ap && (
             <table className="kb-table">

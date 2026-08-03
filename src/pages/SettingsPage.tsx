@@ -137,10 +137,8 @@ export function SettingsPage() {
       }
       await api.dbRestoreApply(path);
       void log.warn("database restored from backup file");
-      push(
-        "success",
-        "Database restored. Reload the app if numbers look stale.",
-      );
+      push("success", "Database restored. Reloading…");
+      window.location.reload();
     } catch (e) {
       pushApiError(e, logContext(PAGE, "restore"));
     }
@@ -148,20 +146,39 @@ export function SettingsPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    const fiscal = Number(fiscalMonth);
+    const nextInvoiceNumber = Number(nextInv);
+    const nextBillNumber = Number(nextBill);
+    const nextCheckNumber = Number(nextCheck);
+    if (!Number.isInteger(fiscal) || fiscal < 1 || fiscal > 12) {
+      push("error", "Fiscal year start month must be an integer from 1 to 12.");
+      return;
+    }
+    if (
+      !Number.isInteger(nextInvoiceNumber) ||
+      nextInvoiceNumber < 1 ||
+      !Number.isInteger(nextBillNumber) ||
+      nextBillNumber < 1 ||
+      !Number.isInteger(nextCheckNumber) ||
+      nextCheckNumber < 1
+    ) {
+      push("error", "Next invoice/bill/check numbers must be positive integers.");
+      return;
+    }
     try {
       await api.companyUpdate({
         name: name.trim(),
         legalName: legalName.trim() || undefined,
-        fiscalYearStartMonth: Number(fiscalMonth),
+        fiscalYearStartMonth: fiscal,
         baseCurrencyCode: currency.trim().toUpperCase(),
-        nextInvoiceNumber: Number(nextInv),
-        nextBillNumber: Number(nextBill),
+        nextInvoiceNumber,
+        nextBillNumber,
         addressLine1: addressLine1.trim() || undefined,
         addressLine2: addressLine2.trim() || undefined,
         city: city.trim() || undefined,
         region: region.trim() || undefined,
         postalCode: postalCode.trim() || undefined,
-        nextCheckNumber: Number(nextCheck),
+        nextCheckNumber,
         defaultCheckStyle,
       });
       void log.info("company profile saved");

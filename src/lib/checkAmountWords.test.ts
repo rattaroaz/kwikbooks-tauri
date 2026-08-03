@@ -16,13 +16,29 @@ describe("amountMinorToWords", () => {
     );
   });
 
+  it("formats zero-decimal currencies without a fractional part", () => {
+    expect(amountMinorToWords(1234, "JPY")).toBe("One thousand two hundred thirty-four");
+  });
+
   it("formats thousands", () => {
     expect(amountMinorToWords(1_005_01)).toBe(
       "One thousand five and 01/100",
     );
   });
 
+  it("formats one trillion dollars", () => {
+    expect(amountMinorToWords(100_000_000_000_000)).toBe(
+      "One trillion and 00/100",
+    );
+  });
+
   it("rejects negative", () => {
     expect(() => amountMinorToWords(-1)).toThrow(/non-negative/i);
+  });
+
+  it("rejects unsafe integers", () => {
+    expect(() => amountMinorToWords(Number.MAX_SAFE_INTEGER + 1)).toThrow(
+      /safe integer/i,
+    );
   });
 });

@@ -39,6 +39,7 @@ export function GlobalSearch() {
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const searchSeq = useRef(0);
 
   const runSearch = useCallback(async (q: string) => {
     const t = q.trim();
@@ -47,18 +48,27 @@ export function GlobalSearch() {
       setError(null);
       return;
     }
+    const seq = ++searchSeq.current;
     setLoading(true);
     setError(null);
     try {
       const res = await api.globalSearch(t, 15);
+      if (seq !== searchSeq.current) {
+        return;
+      }
       setHits(res.hits);
     } catch (e) {
+      if (seq !== searchSeq.current) {
+        return;
+      }
       reportError(logContext("GlobalSearch", "search"), e, (msg) =>
         setError(msg),
       );
       setHits([]);
     } finally {
-      setLoading(false);
+      if (seq === searchSeq.current) {
+        setLoading(false);
+      }
     }
   }, []);
 

@@ -16,7 +16,7 @@ export function CheckPrintPage() {
   const { paymentId: paymentIdParam } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { pushApiError } = useToast();
+  const { push, pushApiError } = useToast();
   const paymentId = Number(paymentIdParam);
   const [loading, setLoading] = useState(true);
   const [layout, setLayout] = useState<CheckLayout>("voucher_top");
@@ -52,30 +52,38 @@ export function CheckPrintPage() {
     })();
   }, [paymentId, pushApiError, searchParams]);
 
-  useEffect(() => {
-    const onAfterPrint = () => {
-      if (!Number.isFinite(paymentId) || paymentId <= 0) {
-        return;
-      }
-      void api.vendorPaymentMarkPrinted(paymentId).catch(() => {
-        /* best-effort */
-      });
-    };
-    window.addEventListener("afterprint", onAfterPrint);
-    return () => window.removeEventListener("afterprint", onAfterPrint);
-  }, [paymentId]);
-
   if (loading) {
     return <PageLoading />;
   }
-  if (!company || !payment || !Number.isFinite(paymentId) || paymentId <= 0) {
+  if (
+    !company ||
+    !payment ||
+    !Number.isFinite(paymentId) ||
+    paymentId <= 0 ||
+    String(payment.paymentMethod ?? "") !== "check"
+  ) {
     return (
       <div className="kb-page">
         <h1>Print check</h1>
-        <p className="kb-error-text">Payment not found.</p>
+        <p className="kb-error-text">
+          {!payment
+            ? "Payment not found."
+            : String(payment.paymentMethod ?? "") !== "check"
+              ? "This payment is not a check."
+              : "Payment not found."}
+        </p>
         <Link to="/checks/write">Back to write check</Link>
       </div>
     );
+  }
+
+  async function markPrinted() {
+    try {
+      await api.vendorPaymentMarkPrinted(paymentId);
+      push("success", "Marked as printed");
+    } catch (e) {
+      pushApiError(e, "CheckPrintPage.markPrinted");
+    }
   }
 
   const payee =
@@ -118,6 +126,14 @@ export function CheckPrintPage() {
             onClick={() => window.print()}
           >
             Print
+          </button>
+          <button
+            type="button"
+            className="kb-button-secondary"
+            data-testid="check-mark-printed"
+            onClick={() => void markPrinted()}
+          >
+            Mark printed
           </button>
           <button
             type="button"

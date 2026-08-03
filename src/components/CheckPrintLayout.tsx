@@ -1,6 +1,6 @@
 import type { CheckLayout } from "../lib/checkStock";
 import { amountMinorToWords } from "../lib/checkAmountWords";
-import { formatMoneyMinor } from "../lib/money";
+import { currencyMajorLabel, formatMoneyMinor } from "../lib/money";
 
 export type CheckPrintData = {
   companyName: string;
@@ -62,11 +62,10 @@ function CheckFace({
 }) {
   const displayName = data.legalName?.trim() || data.companyName;
   const address = companyAddressLines(data);
-  const amountWords = amountMinorToWords(data.amountMinor);
-  const amountFmt = formatMoneyMinor(
-    data.amountMinor,
-    data.currencyCode ?? "USD",
-  );
+  const currency = data.currencyCode ?? "USD";
+  const amountWords = amountMinorToWords(data.amountMinor, currency);
+  const amountFmt = formatMoneyMinor(data.amountMinor, currency);
+  const majorLabel = currencyMajorLabel(currency);
   const guide = showGuides ? " kb-check-guides" : "";
 
   return (
@@ -97,7 +96,7 @@ function CheckFace({
       </div>
       <div className="kb-check-amount-words-field">
         <span className="kb-check-value">{amountWords}</span>
-        <span className="kb-check-dollars-suffix">Dollars</span>
+        <span className="kb-check-dollars-suffix">{majorLabel}</span>
       </div>
       <div className="kb-check-memo-field">
         <span className="kb-check-label">Memo</span>

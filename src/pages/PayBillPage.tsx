@@ -27,6 +27,7 @@ export function PayBillPage() {
   const [amountStr, setAmountStr] = useState("");
   const [billIdStr, setBillIdStr] = useState("");
   const [memo, setMemo] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -53,6 +54,9 @@ export function PayBillPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (submitting) {
+      return;
+    }
     const dateErr = requireValidISODate("Payment date", paymentDate);
     if (dateErr) {
       push("error", dateErr);
@@ -62,6 +66,8 @@ export function PayBillPage() {
       push("error", "Select a vendor and bank account.");
       return;
     }
+    setSubmitting(true);
+    let createdId: number | undefined;
     try {
       const amountMinor = parseMinorInt(amountStr);
       if (amountMinor <= 0) {
@@ -73,7 +79,23 @@ export function PayBillPage() {
         push("error", "Bill id must be a number.");
         return;
       }
-      const paymentId = await api.vendorPaymentCreate({
+      if (billId !== undefined) {
+        try {
+          const bill = await api.getBill(billId);
+          const total = Number(bill.header?.totalMinor ?? 0);
+          if (Number.isFinite(total) && amountMinor > total) {
+            const ok = window.confirm(
+              `Payment exceeds bill total (${total} minor units) and will overpay. Continue?`,
+            );
+            if (!ok) {
+              return;
+            }
+          }
+        } catch {
+          // Backend validates bill on create.
+        }
+      }
+      createdId = await api.vendorPaymentCreate({
         vendorId,
         bankAccountId,
         paymentDate: paymentDate.trim(),
@@ -81,13 +103,25 @@ export function PayBillPage() {
         memo: memo.trim() || undefined,
         billId,
       });
-      await api.vendorPaymentPost(paymentId);
+      await api.vendorPaymentPost(createdId);
       push("success", "Vendor payment recorded and posted");
       setAmountStr("");
       setBillIdStr("");
       setMemo("");
     } catch (err) {
+      if (createdId !== undefined) {
+        try {
+          await api.vendorPaymentDeleteUnposted(createdId);
+        } catch {
+          push(
+            "error",
+            `Payment #${createdId} was created but not posted; delete the draft or retry post.`,
+          );
+        }
+      }
       pushApiError(err, logContext(PAGE, "submit"));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -96,7 +130,9 @@ export function PayBillPage() {
       <h1>Pay vendor</h1>
       <p className="kb-muted">
         Records a vendor payment and posts it to the general ledger (AP debit,
-        bank credit). To print a paper check, use{" "}
+        bank credit). Optional bill id applies the whole payment to one posted
+        bill with a vendor assigned; use a separate payment per bill to split.
+        To print a paper check, use{" "}
         <Link to="/checks/write">Write check</Link>
         {billIdStr.trim()
           ? ` with bill ${billIdStr.trim()}`
@@ -185,9 +221,9 @@ export function PayBillPage() {
         <button
           type="submit"
           data-testid="pay-bill-submit"
-          disabled={banks.length === 0}
+          disabled={banks.length === 0 || submitting}
         >
-          Record &amp; post
+          {submitting ? "Posting…" : "Record & post"}
         </button>
       </form>
     </div>

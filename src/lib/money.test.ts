@@ -1,6 +1,12 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { formatMoneyMinor, parseMinorInt, sumMinor } from "./money";
+import {
+  asSafeMinor,
+  formatMoneyMinor,
+  lineTotalMinor,
+  parseMinorInt,
+  sumMinor,
+} from "./money";
 
 describe("parseMinorInt", () => {
   it("parses integers and strips commas", () => {
@@ -39,6 +45,30 @@ describe("sumMinor", () => {
 describe("formatMoneyMinor", () => {
   it("formats with fixed cents", () => {
     expect(formatMoneyMinor(12345, "USD", "en-US")).toMatch(/\$123\.45/);
+  });
+
+  it("formats zero-decimal currencies without dividing by 100", () => {
+    expect(formatMoneyMinor(1234, "JPY", "en-US")).toMatch(/1,234/);
+  });
+
+  it("rejects unsafe integers", () => {
+    expect(() => formatMoneyMinor(Number.MAX_SAFE_INTEGER + 1)).toThrow(
+      /safe integer/i,
+    );
+  });
+});
+
+describe("lineTotalMinor", () => {
+  it("matches integer-safe qty × unit", () => {
+    expect(lineTotalMinor(2, 1250)).toBe(2500);
+    expect(lineTotalMinor(0.1, 33)).toBe(3);
+    expect(lineTotalMinor(1.5, 100)).toBe(150);
+  });
+});
+
+describe("asSafeMinor", () => {
+  it("accepts safe integers", () => {
+    expect(asSafeMinor(42)).toBe(42);
   });
 });
 

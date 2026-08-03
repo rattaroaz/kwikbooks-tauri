@@ -137,8 +137,16 @@ export async function customerPaymentCreate(payload: JsonObject) {
   return invoke<number>("customer_payment_create", { input: payload });
 }
 
+export async function customerPaymentDeleteUnposted(paymentId: number) {
+  return invoke<void>("customer_payment_delete_unposted", { paymentId });
+}
+
 export async function vendorPaymentCreate(payload: JsonObject) {
   return invoke<number>("vendor_payment_create", { input: payload });
+}
+
+export async function vendorPaymentDeleteUnposted(paymentId: number) {
+  return invoke<void>("vendor_payment_delete_unposted", { paymentId });
 }
 
 export async function vendorPaymentMarkPrinted(paymentId: number) {

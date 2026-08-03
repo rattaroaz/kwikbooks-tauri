@@ -254,7 +254,9 @@ fn row_item(headers: &[String], rec: &csv::StringRecord) -> Option<ParsedItem> {
         "Amount",
     ])
     .unwrap_or_default();
-    let unit_price_minor = parse_money_minor(&price_s).unwrap_or(0);
+    let unit_price_minor = parse_money_minor(&price_s)
+        .map(i64::saturating_abs)
+        .unwrap_or(0);
     let income_account_name =
         get_field(rec, headers, &["Income Account", "Income", "Sales Account"]);
     Some(ParsedItem {
@@ -266,12 +268,18 @@ fn row_item(headers: &[String], rec: &csv::StringRecord) -> Option<ParsedItem> {
 
 fn map_csv_account_type(s: &str) -> (&'static str, bool) {
     let u = s.trim().to_lowercase();
-    let bank = u.contains("bank")
+    let is_credit_card = u.contains("credit card");
+    let is_cash_like = u.contains("bank")
         || u.contains("checking")
         || u.contains("savings")
-        || u.contains("cash")
-        || u.contains("credit card");
-    let kind = if u.contains("bank")
+        || u == "cash"
+        || u.contains("cash and cash")
+        || u.contains("undeposited");
+    // Credit cards are liabilities — never treat as bank/cash payment accounts.
+    let bank = !is_credit_card && is_cash_like;
+    let kind = if is_credit_card {
+        "liability"
+    } else if is_cash_like
         || u.contains("accounts receivable")
         || u.contains("other current asset")
         || u.contains("inventory")
@@ -279,10 +287,7 @@ fn map_csv_account_type(s: &str) -> (&'static str, bool) {
         || u.contains("asset")
     {
         "asset"
-    } else if u.contains("credit card")
-        || u.contains("accounts payable")
-        || u.contains("liabilit")
-        || u.contains("loan")
+    } else if u.contains("accounts payable") || u.contains("liabilit") || u.contains("loan")
     {
         "liability"
     } else if u.contains("equity") {
@@ -321,13 +326,19 @@ mod tests {
 
     #[test]
     fn parse_account_csv_maps_type() {
-        let csv = "Account Number,Account Name,Account Type\n1000,Cash,Bank\n6000,Utilities,Expense\n";
+        let csv = "Account Number,Account Name,Account Type\n1000,Cash,Bank\n1010,Petty,Cash\n1020,Hold,Undeposited Funds\n6000,Utilities,Expense\n2100,Visa,Credit Card\n";
         let (batch, skipped, _) = parse_csv(csv).unwrap();
         assert_eq!(skipped, 0);
-        assert_eq!(batch.accounts.len(), 2);
+        assert_eq!(batch.accounts.len(), 5);
         assert_eq!(batch.accounts[0].code, "1000");
         assert!(batch.accounts[0].is_bank_cash);
-        assert_eq!(batch.accounts[1].account_type, "expense");
+        assert_eq!(batch.accounts[1].account_type, "asset");
+        assert!(batch.accounts[1].is_bank_cash);
+        assert_eq!(batch.accounts[2].account_type, "asset");
+        assert!(batch.accounts[2].is_bank_cash);
+        assert_eq!(batch.accounts[3].account_type, "expense");
+        assert_eq!(batch.accounts[4].account_type, "liability");
+        assert!(!batch.accounts[4].is_bank_cash);
     }
 
     #[test]

@@ -265,6 +265,7 @@ VALUES
   (1, '1000', 'Cash', 'asset', 1, 10),
   (1, '1100', 'Accounts Receivable', 'asset', 0, 20),
   (1, '2000', 'Accounts Payable', 'liability', 0, 30),
+  (1, '2100', 'Sales Tax Payable', 'liability', 0, 35),
   (1, '3000', 'Opening Balance Equity', 'equity', 0, 40),
   (1, '4000', 'Sales', 'income', 0, 50),
   (1, '5000', 'Expenses', 'expense', 0, 60);

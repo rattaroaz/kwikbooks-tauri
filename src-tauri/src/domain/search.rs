@@ -223,7 +223,7 @@ pub fn global_search(
              'Customer payment #' || cp.id,
              trim(COALESCE(c.display_name,'') || ' · ' || cp.payment_date
                || CASE WHEN IFNULL(cp.memo,'') != '' THEN ' · ' || substr(cp.memo,1,60) ELSE '' END),
-             '/register'
+             '/payments/receive'
            FROM customer_payment cp
            JOIN customer c ON c.id = cp.customer_id
            WHERE cp.company_id = ?1 AND (
@@ -241,7 +241,10 @@ pub fn global_search(
              'Vendor payment #' || vp.id,
              trim(COALESCE(v.display_name,'') || ' · ' || vp.payment_date
                || CASE WHEN IFNULL(vp.memo,'') != '' THEN ' · ' || substr(vp.memo,1,60) ELSE '' END),
-             '/register'
+             CASE WHEN vp.payment_method = 'check'
+               THEN '/checks/print/' || vp.id
+               ELSE '/payments/pay'
+             END
            FROM vendor_payment vp
            JOIN vendor v ON v.id = vp.vendor_id
            WHERE vp.company_id = ?1 AND (

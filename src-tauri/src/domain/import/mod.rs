@@ -131,6 +131,18 @@ pub fn run_import(
             continue;
         }
 
+        let account_type = a.account_type;
+        let mut is_bank_cash = a.is_bank_cash;
+        if let Err(e) =
+            crate::domain::ids::require_bank_cash_flag(is_bank_cash, &account_type, a.code.trim())
+        {
+            warnings.push(format!(
+                "Account \"{}\": {e} — imported without bank/cash.",
+                a.code
+            ));
+            is_bank_cash = false;
+        }
+
         next_sort += 1;
         tx.execute(
             r#"INSERT INTO account (company_id, code, name, account_type, parent_id, is_bank_cash, sort_order)
@@ -139,8 +151,8 @@ pub fn run_import(
                 COMPANY_ID,
                 a.code.trim(),
                 a.name.trim(),
-                a.account_type,
-                a.is_bank_cash as i64,
+                account_type,
+                is_bank_cash as i64,
                 next_sort,
             ],
         )?;
@@ -216,9 +228,10 @@ pub fn run_import(
         vendors_created += 1;
     }
 
-    let account_by_lower_name: std::collections::HashMap<String, i64> = tx
+    let income_account_by_lower_name: std::collections::HashMap<String, i64> = tx
         .prepare(
-            "SELECT lower(trim(name)), id FROM account WHERE company_id = ?1 AND is_active = 1",
+            r#"SELECT lower(trim(name)), id FROM account
+               WHERE company_id = ?1 AND is_active = 1 AND account_type = 'income'"#,
         )?
         .query_map([COMPANY_ID], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
@@ -244,12 +257,21 @@ pub fn run_import(
             continue;
         }
 
-        let income_id = it
+        let income_name = it
             .income_account_name
             .as_ref()
             .map(|n| n.trim())
-            .filter(|n| !n.is_empty())
-            .and_then(|n| account_by_lower_name.get(&n.to_lowercase()).copied());
+            .filter(|n| !n.is_empty());
+        let income_id = income_name
+            .and_then(|n| income_account_by_lower_name.get(&n.to_lowercase()).copied());
+        if let Some(name) = income_name {
+            if income_id.is_none() {
+                warnings.push(format!(
+                    "Item \"{}\": income account \"{}\" not found (or not an income account); left unset.",
+                    it.name, name
+                ));
+            }
+        }
 
         tx.execute(
             r#"INSERT INTO item (company_id, name, sku, unit_price_minor, default_income_account_id, default_expense_account_id, is_active)

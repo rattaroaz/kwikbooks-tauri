@@ -39,7 +39,7 @@ vi.mock("../api/db", () => ({
     Promise.resolve({
       ok: true,
       sqliteOk: true,
-      migrationVersion: 5,
+      migrationVersion: 6,
       appVersion: "1.1.0",
       logLevel: "Info",
       slowIpcMs: 1500,

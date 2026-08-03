@@ -49,6 +49,7 @@ export function WriteCheckPage() {
     () => CHECK_STOCK_PRESETS[1]?.id ?? "deluxe_qb_top",
   );
   const [currency, setCurrency] = useState("USD");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -94,6 +95,9 @@ export function WriteCheckPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (submitting) {
+      return;
+    }
     const dateErr = requireValidISODate("Payment date", paymentDate);
     if (dateErr) {
       push("error", dateErr);
@@ -103,6 +107,8 @@ export function WriteCheckPage() {
       push("error", "Select a vendor and bank account.");
       return;
     }
+    setSubmitting(true);
+    let createdId: number | undefined;
     try {
       const amountMinor = parseMinorInt(amountStr);
       if (amountMinor <= 0) {
@@ -114,7 +120,23 @@ export function WriteCheckPage() {
         push("error", "Bill id must be a number.");
         return;
       }
-      const paymentId = await api.vendorPaymentCreate({
+      if (billId !== undefined) {
+        try {
+          const bill = await api.getBill(billId);
+          const total = Number(bill.header?.totalMinor ?? 0);
+          if (Number.isFinite(total) && amountMinor > total) {
+            const ok = window.confirm(
+              `Check amount exceeds bill total (${total} minor units) and will overpay. Continue?`,
+            );
+            if (!ok) {
+              return;
+            }
+          }
+        } catch {
+          // Backend validates bill on create.
+        }
+      }
+      createdId = await api.vendorPaymentCreate({
         vendorId,
         bankAccountId,
         paymentDate: paymentDate.trim(),
@@ -125,13 +147,25 @@ export function WriteCheckPage() {
         checkNumber: checkNumber.trim() || undefined,
         payeeName: payeeOverride.trim() || undefined,
       });
-      await api.vendorPaymentPost(paymentId);
+      await api.vendorPaymentPost(createdId);
       push("success", "Check payment recorded and posted");
       const preset = CHECK_STOCK_PRESETS.find((p) => p.id === stockId);
       const layout: CheckLayout = preset?.layout ?? "voucher_top";
-      navigate(`/checks/print/${paymentId}?style=${layout}`);
+      navigate(`/checks/print/${createdId}?style=${layout}`);
     } catch (err) {
+      if (createdId !== undefined) {
+        try {
+          await api.vendorPaymentDeleteUnposted(createdId);
+        } catch {
+          push(
+            "error",
+            `Check payment #${createdId} was created but not posted; delete the draft or retry post.`,
+          );
+        }
+      }
       pushApiError(err, "WriteCheckPage");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -244,10 +278,10 @@ export function WriteCheckPage() {
         </p>
         <button
           type="submit"
-          disabled={banks.length === 0}
+          disabled={banks.length === 0 || submitting}
           data-testid="write-check-submit"
         >
-          Record, post &amp; print
+          {submitting ? "Posting…" : "Record, post & print"}
         </button>
       </form>
 

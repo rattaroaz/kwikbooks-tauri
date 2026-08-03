@@ -18,15 +18,24 @@ export function BillDetailPage() {
   const billId = Number(id);
   const { push, pushApiError } = useToast();
   const [data, setData] = useState<BillDetailData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!Number.isFinite(billId) || billId <= 0) {
+      setLoadError("Invalid bill id.");
+      setData(null);
+      return;
+    }
     try {
+      setLoadError(null);
       const d = await api.getBill(billId);
       setData({
         header: d.header,
         lines: d.lines as JsonObject[],
       });
     } catch (e) {
+      setData(null);
+      setLoadError("Bill could not be loaded.");
       pushApiError(e, logContext(PAGE, "load"));
     }
   }, [billId, pushApiError]);
@@ -34,6 +43,18 @@ export function BillDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  if (loadError) {
+    return (
+      <div className="kb-page">
+        <p>
+          <Link to="/bills">← Bills</Link>
+        </p>
+        <h1>Bill</h1>
+        <p className="kb-error-text">{loadError}</p>
+      </div>
+    );
+  }
 
   if (!data) {
     return <div className="kb-page">Loading…</div>;

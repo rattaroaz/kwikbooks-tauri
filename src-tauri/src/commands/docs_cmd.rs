@@ -1,8 +1,14 @@
 use serde::Deserialize;
 
+use rusqlite::TransactionBehavior;
+
 use crate::ipc_log::timed_ipc;
 use crate::db::{open_sqlite, DbCommandError, DbState};
 use crate::domain::constants::COMPANY_ID;
+use crate::domain::dates::require_iso_date;
+use crate::domain::ids::{account_has_type, require_bank_cash_account};
+use crate::domain::lifecycle::{assert_bill_payment_link, assert_invoice_payment_link};
+use crate::domain::money::line_total_minor;
 use tauri::State;
 
 #[derive(Debug, Deserialize)]
@@ -99,10 +105,6 @@ fn default_payment_method() -> String {
     "other".into()
 }
 
-fn line_total_minor(qty: f64, unit_minor: i64) -> i64 {
-    ((qty * unit_minor as f64).round() as i64).max(0)
-}
-
 #[tauri::command]
 pub fn customer_create(
     state: State<'_, DbState>,
@@ -159,12 +161,32 @@ pub fn invoice_create(
     input: InvoiceCreateInput,
 ) -> Result<i64, DbCommandError> {
     timed_ipc("invoice_create", || {
+        if input.tax_minor < 0 {
+            return Err(DbCommandError::Validation {
+                message: "invoice tax must be zero or positive".into(),
+            });
+        }
+        if input.lines.is_empty() {
+            return Err(DbCommandError::Validation {
+                message: "invoice must have at least one line".into(),
+            });
+        }
         let mut subtotal: i64 = 0;
         let mut line_payload: Vec<(i32, String, f64, i64, i64, Option<i64>)> = Vec::new();
 
         for (idx, line) in input.lines.iter().enumerate() {
             let ln = (idx + 1) as i32;
+            if line.unit_price_minor < 0 {
+                return Err(DbCommandError::Validation {
+                    message: format!("line {ln} unit price must be zero or positive"),
+                });
+            }
             let lt = line_total_minor(line.quantity, line.unit_price_minor);
+            if lt <= 0 {
+                return Err(DbCommandError::Validation {
+                    message: format!("line {ln} total must be greater than zero"),
+                });
+            }
             subtotal = subtotal.saturating_add(lt);
             line_payload.push((
                 ln,
@@ -177,10 +199,28 @@ pub fn invoice_create(
         }
 
         let total = subtotal.saturating_add(input.tax_minor);
+        if total <= 0 {
+            return Err(DbCommandError::Validation {
+                message: "invoice total must be greater than zero".into(),
+            });
+        }
         let cust = input.customer_id;
         let inv_no = input.number.clone();
         let line_count = input.lines.len();
+        require_iso_date("issue date", &input.issue_date)?;
+        if let Some(due) = input.due_date.as_deref() {
+            require_iso_date("due date", due)?;
+        }
         let mut conn = open_sqlite(&state.db_path)?;
+        for (_ln, _, _, _, _, inc) in &line_payload {
+            if let Some(acc) = inc {
+                if !account_has_type(&conn, COMPANY_ID, *acc, "income")? {
+                    return Err(DbCommandError::Validation {
+                        message: "invoice line income account must have account_type=income".into(),
+                    });
+                }
+            }
+        }
         let tx = conn.transaction()?;
 
         tx.execute(
@@ -231,13 +271,39 @@ pub fn bill_create(
     input: BillCreateInput,
 ) -> Result<i64, DbCommandError> {
     timed_ipc("bill_create", || {
+        require_iso_date("issue date", &input.issue_date)?;
+        if let Some(due) = input.due_date.as_deref() {
+            require_iso_date("due date", due)?;
+        }
+        if input.lines.is_empty() {
+            return Err(DbCommandError::Validation {
+                message: "bill must have at least one line".into(),
+            });
+        }
+        if input.vendor_id.is_none()
+            && input
+                .payee_name
+                .as_ref()
+                .map(|s| s.trim().is_empty())
+                .unwrap_or(true)
+        {
+            return Err(DbCommandError::Validation {
+                message: "bill requires a vendor or payee name".into(),
+            });
+        }
         let mut total_minor: i64 = 0;
         let mut rows: Vec<(i32, String, i64, i64)> = Vec::new();
 
         for (idx, line) in input.lines.iter().enumerate() {
+            let ln = (idx + 1) as i32;
+            if line.amount_minor <= 0 {
+                return Err(DbCommandError::Validation {
+                    message: format!("bill line {ln} amount must be greater than zero"),
+                });
+            }
             total_minor = total_minor.saturating_add(line.amount_minor);
             rows.push((
-                (idx + 1) as i32,
+                ln,
                 line.description.clone(),
                 line.amount_minor,
                 line.expense_account_id,
@@ -247,6 +313,13 @@ pub fn bill_create(
         let num = input.number.clone();
         let n_lines = input.lines.len();
         let mut conn = open_sqlite(&state.db_path)?;
+        for (_ln, _, _, exp) in &rows {
+            if !account_has_type(&conn, COMPANY_ID, *exp, "expense")? {
+                return Err(DbCommandError::Validation {
+                    message: "bill line expense account must have account_type=expense".into(),
+                });
+            }
+        }
         let tx = conn.transaction()?;
 
         tx.execute(
@@ -293,32 +366,72 @@ pub fn customer_payment_create(
     input: CustomerPaymentCreateInput,
 ) -> Result<i64, DbCommandError> {
     timed_ipc("customer_payment_create", || {
-        let amt = input.amount_minor;
-        let cid = input.customer_id;
-        let conn = open_sqlite(&state.db_path)?;
-        conn.execute(
-            r#"INSERT INTO customer_payment
+        customer_payment_create_impl(&state.db_path, input)
+    })
+}
+
+pub(crate) fn customer_payment_create_impl(
+    db_path: &std::path::Path,
+    input: CustomerPaymentCreateInput,
+) -> Result<i64, DbCommandError> {
+    let amt = input.amount_minor;
+    if amt <= 0 {
+        return Err(DbCommandError::Validation {
+            message: "amount must be greater than zero".into(),
+        });
+    }
+    require_iso_date("payment date", &input.payment_date)?;
+    let cid = input.customer_id;
+    let mut conn = open_sqlite(db_path)?;
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    require_bank_cash_account(&tx, COMPANY_ID, input.bank_account_id)?;
+    if let Some(inv_id) = input.invoice_id {
+        assert_invoice_payment_link(&tx, inv_id, cid, None)?;
+    }
+    tx.execute(
+        r#"INSERT INTO customer_payment
            (company_id, customer_id, bank_account_id, payment_date, amount_minor, memo, invoice_id)
            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"#,
-            rusqlite::params![
-                COMPANY_ID,
-                input.customer_id,
-                input.bank_account_id,
-                input.payment_date,
-                input.amount_minor,
-                input.memo,
-                input.invoice_id,
-            ],
+        rusqlite::params![
+            COMPANY_ID,
+            input.customer_id,
+            input.bank_account_id,
+            input.payment_date,
+            input.amount_minor,
+            input.memo,
+            input.invoice_id,
+        ],
+    )?;
+    let id = tx.last_insert_rowid();
+    tx.commit()?;
+    log::debug!(
+        target: "kwikbooks_lib::ipc::docs",
+        "customer_payment_created id={} customer_id={} amount_minor={}",
+        id,
+        cid,
+        amt
+    );
+    Ok(id)
+}
+
+#[tauri::command]
+pub fn customer_payment_delete_unposted(
+    state: State<'_, DbState>,
+    payment_id: i64,
+) -> Result<(), DbCommandError> {
+    timed_ipc("customer_payment_delete_unposted", || {
+        let conn = open_sqlite(&state.db_path)?;
+        let n = conn.execute(
+            r#"DELETE FROM customer_payment
+               WHERE id = ?1 AND company_id = ?2 AND journal_id IS NULL"#,
+            rusqlite::params![payment_id, COMPANY_ID],
         )?;
-        let id = conn.last_insert_rowid();
-        log::debug!(
-            target: "kwikbooks_lib::ipc::docs",
-            "customer_payment_created id={} customer_id={} amount_minor={}",
-            id,
-            cid,
-            amt
-        );
-        Ok(id)
+        if n == 0 {
+            return Err(DbCommandError::Conflict {
+                message: "customer payment not found or already posted".into(),
+            });
+        }
+        Ok(())
     })
 }
 
@@ -349,9 +462,14 @@ pub(crate) fn vendor_payment_create_impl(
             message: "amount must be greater than zero".into(),
         });
     }
+    require_iso_date("payment date", &input.payment_date)?;
 
     let mut conn = open_sqlite(db_path)?;
-    let tx = conn.transaction()?;
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    require_bank_cash_account(&tx, COMPANY_ID, input.bank_account_id)?;
+    if let Some(bill_id) = input.bill_id {
+        assert_bill_payment_link(&tx, bill_id, input.vendor_id, None)?;
+    }
 
     let check_number = if method == "check" {
         let provided = input
@@ -365,6 +483,17 @@ pub(crate) fn vendor_payment_create_impl(
             |row| row.get(0),
         )?;
         let number = provided.unwrap_or_else(|| next.to_string());
+        let dup: i64 = tx.query_row(
+            r#"SELECT COUNT(*) FROM vendor_payment
+               WHERE company_id = ?1 AND payment_method = 'check' AND check_number = ?2"#,
+            rusqlite::params![COMPANY_ID, number],
+            |row| row.get(0),
+        )?;
+        if dup > 0 {
+            return Err(DbCommandError::Validation {
+                message: format!("check number {number} is already in use"),
+            });
+        }
         if number.parse::<i64>().ok() == Some(next) {
             tx.execute(
                 "UPDATE company SET next_check_number = ?1, updated_at = datetime('now') WHERE id = ?2",
@@ -415,6 +544,27 @@ pub(crate) fn vendor_payment_create_impl(
         method
     );
     Ok(id)
+}
+
+#[tauri::command]
+pub fn vendor_payment_delete_unposted(
+    state: State<'_, DbState>,
+    payment_id: i64,
+) -> Result<(), DbCommandError> {
+    timed_ipc("vendor_payment_delete_unposted", || {
+        let conn = open_sqlite(&state.db_path)?;
+        let n = conn.execute(
+            r#"DELETE FROM vendor_payment
+               WHERE id = ?1 AND company_id = ?2 AND journal_id IS NULL"#,
+            rusqlite::params![payment_id, COMPANY_ID],
+        )?;
+        if n == 0 {
+            return Err(DbCommandError::Conflict {
+                message: "vendor payment not found or already posted".into(),
+            });
+        }
+        Ok(())
+    })
 }
 
 #[tauri::command]
@@ -585,5 +735,247 @@ mod tests {
             assert_eq!(method, "check");
             assert_eq!(check_no, "500");
         }
+    }
+
+    fn seed_bank_and_party(conn: &rusqlite::Connection) -> (i64, i64, i64) {
+        conn.execute(
+            "INSERT INTO account (company_id, code, name, account_type, is_bank_cash)
+             VALUES (1, '1098', 'Pay Guard Bank', 'asset', 1)",
+            [],
+        )
+        .expect("bank");
+        let bank_id = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO customer (company_id, display_name) VALUES (1, 'Pay Guard Cust')",
+            [],
+        )
+        .expect("customer");
+        let customer_id = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO vendor (company_id, display_name) VALUES (1, 'Pay Guard Vend')",
+            [],
+        )
+        .expect("vendor");
+        let vendor_id = conn.last_insert_rowid();
+        (bank_id, customer_id, vendor_id)
+    }
+
+    #[test]
+    fn customer_payment_rejects_unposted_and_fully_applied_invoice() {
+        use crate::db::{open_sqlite, run_all_on_connection};
+        use tempfile::tempdir;
+
+        let dir = tempdir().expect("tmp");
+        let p = dir.path().join("pay_guard_cust.sqlite");
+        let mut conn = open_sqlite(&p).expect("open");
+        run_all_on_connection(&mut conn).expect("migrate");
+        let (bank_id, customer_id, _) = seed_bank_and_party(&conn);
+
+        conn.execute(
+            r#"INSERT INTO invoice
+               (company_id, customer_id, number, status, issue_date, subtotal_minor, tax_minor, total_minor)
+               VALUES (1, ?1, 'PG-1', 'sent', '2026-01-01', 100, 0, 100)"#,
+            [customer_id],
+        )
+        .expect("invoice");
+        let inv = conn.last_insert_rowid();
+
+        let err = customer_payment_create_impl(
+            &p,
+            CustomerPaymentCreateInput {
+                customer_id,
+                bank_account_id: bank_id,
+                payment_date: "2026-01-02".into(),
+                amount_minor: 50,
+                memo: None,
+                invoice_id: Some(inv),
+            },
+        );
+        assert!(
+            err.unwrap_err().to_string().contains("posted"),
+            "unposted invoice must be rejected"
+        );
+
+        conn.execute(
+            "INSERT INTO journal (company_id, entry_date, source_kind, source_id) VALUES (1, '2026-01-01', 'invoice', 1)",
+            [],
+        )
+        .unwrap();
+        let jid = conn.last_insert_rowid();
+        conn.execute(
+            "UPDATE invoice SET journal_id = ?1 WHERE id = ?2",
+            rusqlite::params![jid, inv],
+        )
+        .unwrap();
+
+        conn.execute(
+            "INSERT INTO journal (company_id, entry_date, source_kind, source_id) VALUES (1, '2026-01-02', 'payment_customer', 1)",
+            [],
+        )
+        .unwrap();
+        let pj = conn.last_insert_rowid();
+        conn.execute(
+            r#"INSERT INTO customer_payment
+               (company_id, customer_id, bank_account_id, payment_date, amount_minor, journal_id, invoice_id)
+               VALUES (1, ?1, ?2, '2026-01-02', 100, ?3, ?4)"#,
+            rusqlite::params![customer_id, bank_id, pj, inv],
+        )
+        .unwrap();
+
+        let err = customer_payment_create_impl(
+            &p,
+            CustomerPaymentCreateInput {
+                customer_id,
+                bank_account_id: bank_id,
+                payment_date: "2026-01-03".into(),
+                amount_minor: 10,
+                memo: None,
+                invoice_id: Some(inv),
+            },
+        );
+        assert!(
+            err.unwrap_err().to_string().contains("fully applied"),
+            "fully applied invoice must be rejected"
+        );
+    }
+
+    #[test]
+    fn customer_payment_rejects_second_draft_against_same_invoice() {
+        use crate::db::{open_sqlite, run_all_on_connection};
+        use tempfile::tempdir;
+
+        let dir = tempdir().expect("tmp");
+        let p = dir.path().join("pay_guard_draft.sqlite");
+        let mut conn = open_sqlite(&p).expect("open");
+        run_all_on_connection(&mut conn).expect("migrate");
+        let (bank_id, customer_id, _) = seed_bank_and_party(&conn);
+
+        conn.execute(
+            r#"INSERT INTO invoice
+               (company_id, customer_id, number, status, issue_date, subtotal_minor, tax_minor, total_minor)
+               VALUES (1, ?1, 'PG-D1', 'sent', '2026-01-01', 100, 0, 100)"#,
+            [customer_id],
+        )
+        .expect("invoice");
+        let inv = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO journal (company_id, entry_date, source_kind, source_id) VALUES (1, '2026-01-01', 'invoice', ?1)",
+            [inv],
+        )
+        .unwrap();
+        let jid = conn.last_insert_rowid();
+        conn.execute(
+            "UPDATE invoice SET journal_id = ?1 WHERE id = ?2",
+            rusqlite::params![jid, inv],
+        )
+        .unwrap();
+
+        customer_payment_create_impl(
+            &p,
+            CustomerPaymentCreateInput {
+                customer_id,
+                bank_account_id: bank_id,
+                payment_date: "2026-01-02".into(),
+                amount_minor: 100,
+                memo: None,
+                invoice_id: Some(inv),
+            },
+        )
+        .expect("first draft");
+
+        let err = customer_payment_create_impl(
+            &p,
+            CustomerPaymentCreateInput {
+                customer_id,
+                bank_account_id: bank_id,
+                payment_date: "2026-01-03".into(),
+                amount_minor: 100,
+                memo: None,
+                invoice_id: Some(inv),
+            },
+        );
+        assert!(
+            err.unwrap_err().to_string().contains("fully applied"),
+            "second draft must reserve against first"
+        );
+    }
+
+    #[test]
+    fn vendor_payment_rejects_payee_only_and_unposted_bill() {
+        use crate::db::{open_sqlite, run_all_on_connection};
+        use tempfile::tempdir;
+
+        let dir = tempdir().expect("tmp");
+        let p = dir.path().join("pay_guard_vend.sqlite");
+        let mut conn = open_sqlite(&p).expect("open");
+        run_all_on_connection(&mut conn).expect("migrate");
+        let (bank_id, _, vendor_id) = seed_bank_and_party(&conn);
+
+        conn.execute(
+            r#"INSERT INTO bill
+               (company_id, number, status, issue_date, total_minor, payee_name)
+               VALUES (1, 'PG-B1', 'open', '2026-01-01', 100, 'Cash Payee')"#,
+            [],
+        )
+        .expect("payee bill");
+        let bill = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO journal (company_id, entry_date, source_kind, source_id) VALUES (1, '2026-01-01', 'bill', 1)",
+            [],
+        )
+        .unwrap();
+        let jid = conn.last_insert_rowid();
+        conn.execute(
+            "UPDATE bill SET journal_id = ?1 WHERE id = ?2",
+            rusqlite::params![jid, bill],
+        )
+        .unwrap();
+
+        let err = vendor_payment_create_impl(
+            &p,
+            VendorPaymentCreateInput {
+                vendor_id,
+                bank_account_id: bank_id,
+                payment_date: "2026-01-02".into(),
+                amount_minor: 50,
+                memo: None,
+                bill_id: Some(bill),
+                payment_method: "other".into(),
+                check_number: None,
+                payee_name: None,
+            },
+        );
+        assert!(
+            err.unwrap_err().to_string().contains("payee-only"),
+            "payee-only bill must reject vendor link"
+        );
+
+        conn.execute(
+            r#"INSERT INTO bill
+               (company_id, vendor_id, number, status, issue_date, total_minor)
+               VALUES (1, ?1, 'PG-B2', 'open', '2026-01-01', 100)"#,
+            [vendor_id],
+        )
+        .expect("vendor bill");
+        let bill2 = conn.last_insert_rowid();
+
+        let err = vendor_payment_create_impl(
+            &p,
+            VendorPaymentCreateInput {
+                vendor_id,
+                bank_account_id: bank_id,
+                payment_date: "2026-01-02".into(),
+                amount_minor: 50,
+                memo: None,
+                bill_id: Some(bill2),
+                payment_method: "other".into(),
+                check_number: None,
+                payee_name: None,
+            },
+        );
+        assert!(
+            err.unwrap_err().to_string().contains("posted"),
+            "unposted bill must be rejected"
+        );
     }
 }

@@ -12,6 +12,11 @@ pub struct DraftJournalLine {
 }
 
 pub fn validate_balance(lines: &[DraftJournalLine]) -> Result<(), DbCommandError> {
+    if lines.is_empty() {
+        return Err(DbCommandError::Validation {
+            message: "journal must have at least one line".into(),
+        });
+    }
     let mut dr: i64 = 0;
     let mut cr: i64 = 0;
     for l in lines {

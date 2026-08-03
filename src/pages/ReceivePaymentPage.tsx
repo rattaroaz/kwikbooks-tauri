@@ -27,6 +27,7 @@ export function ReceivePaymentPage() {
   const [amountStr, setAmountStr] = useState("");
   const [invoiceIdStr, setInvoiceIdStr] = useState("");
   const [memo, setMemo] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -53,6 +54,9 @@ export function ReceivePaymentPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (submitting) {
+      return;
+    }
     const dateErr = requireValidISODate("Payment date", paymentDate);
     if (dateErr) {
       push("error", dateErr);
@@ -62,6 +66,8 @@ export function ReceivePaymentPage() {
       push("error", "Select a customer and bank account.");
       return;
     }
+    setSubmitting(true);
+    let createdId: number | undefined;
     try {
       const amountMinor = parseMinorInt(amountStr);
       if (amountMinor <= 0) {
@@ -74,7 +80,23 @@ export function ReceivePaymentPage() {
         push("error", "Invoice id must be a number.");
         return;
       }
-      const paymentId = await api.customerPaymentCreate({
+      if (invoiceId !== undefined) {
+        try {
+          const inv = await api.getInvoice(invoiceId);
+          const total = Number(inv.header?.totalMinor ?? 0);
+          if (Number.isFinite(total) && amountMinor > total) {
+            const ok = window.confirm(
+              `Payment exceeds invoice total (${total} minor units) and will overpay. Continue?`,
+            );
+            if (!ok) {
+              return;
+            }
+          }
+        } catch {
+          // Backend validates invoice on create.
+        }
+      }
+      createdId = await api.customerPaymentCreate({
         customerId,
         bankAccountId,
         paymentDate: paymentDate.trim(),
@@ -82,13 +104,25 @@ export function ReceivePaymentPage() {
         memo: memo.trim() || undefined,
         invoiceId,
       });
-      await api.customerPaymentPost(paymentId);
+      await api.customerPaymentPost(createdId);
       push("success", "Customer payment recorded and posted");
       setAmountStr("");
       setInvoiceIdStr("");
       setMemo("");
     } catch (err) {
+      if (createdId !== undefined) {
+        try {
+          await api.customerPaymentDeleteUnposted(createdId);
+        } catch {
+          push(
+            "error",
+            `Payment #${createdId} was created but not posted; delete the draft or retry post.`,
+          );
+        }
+      }
       pushApiError(err, logContext(PAGE, "submit"));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -97,7 +131,8 @@ export function ReceivePaymentPage() {
       <h1>Receive payment</h1>
       <p className="kb-muted">
         Records a customer payment and posts it to the general ledger (bank
-        debit, AR credit).
+        debit, AR credit). Optional invoice id applies the whole payment to one
+        posted invoice; use a separate payment per invoice to split a receipt.
       </p>
       {banks.length === 0 && (
         <p className="kb-error-text">
@@ -165,9 +200,9 @@ export function ReceivePaymentPage() {
         <button
           type="submit"
           data-testid="receive-payment-submit"
-          disabled={banks.length === 0}
+          disabled={banks.length === 0 || submitting}
         >
-          Record &amp; post
+          {submitting ? "Posting…" : "Record & post"}
         </button>
       </form>
     </div>

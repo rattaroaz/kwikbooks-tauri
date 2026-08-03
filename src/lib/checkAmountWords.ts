@@ -1,3 +1,5 @@
+import { currencyFractionDigits } from "./money";
+
 const ONES = [
   "",
   "one",
@@ -60,10 +62,14 @@ function integerToWords(n: number): string {
     return "zero";
   }
   const parts: string[] = [];
-  const billions = Math.floor(n / 1_000_000_000);
+  const trillions = Math.floor(n / 1_000_000_000_000);
+  const billions = Math.floor((n % 1_000_000_000_000) / 1_000_000_000);
   const millions = Math.floor((n % 1_000_000_000) / 1_000_000);
   const thousands = Math.floor((n % 1_000_000) / 1000);
   const rest = n % 1000;
+  if (trillions) {
+    parts.push(`${underThousand(trillions)} trillion`);
+  }
   if (billions) {
     parts.push(`${underThousand(billions)} billion`);
   }
@@ -87,17 +93,27 @@ function capitalize(s: string): string {
 }
 
 /**
- * USD minor units → check amount line, e.g. 12345 → "One hundred twenty-three and 45/100".
+ * Minor units → check amount line.
+ * Uses the currency's ISO fraction digits (USD → "… and 45/100").
  */
-export function amountMinorToWords(minor: number): string {
+export function amountMinorToWords(
+  minor: number,
+  currencyCode: string = "USD",
+): string {
   if (!Number.isFinite(minor) || !Number.isInteger(minor) || minor < 0) {
     throw new Error("Amount must be a non-negative integer of minor units.");
   }
-  const dollars = Math.floor(minor / 100);
-  const cents = minor % 100;
-  const centsPart = `${String(cents).padStart(2, "0")}/100`;
-  if (dollars === 0) {
-    return capitalize(`zero and ${centsPart}`);
+  if (!Number.isSafeInteger(minor)) {
+    throw new Error("Amount exceeds safe integer range.");
   }
-  return capitalize(`${integerToWords(dollars)} and ${centsPart}`);
+  const digits = currencyFractionDigits(currencyCode);
+  const scale = 10 ** digits;
+  const major = digits === 0 ? minor : Math.floor(minor / scale);
+  const frac = digits === 0 ? 0 : minor % scale;
+  const majorWords = major === 0 ? "zero" : integerToWords(major);
+  if (digits === 0) {
+    return capitalize(majorWords);
+  }
+  const fracPart = `${String(frac).padStart(digits, "0")}/${scale}`;
+  return capitalize(`${majorWords} and ${fracPart}`);
 }

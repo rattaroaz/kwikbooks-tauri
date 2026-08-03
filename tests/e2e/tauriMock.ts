@@ -55,6 +55,22 @@ export async function installTauriMock(page: Page): Promise<void> {
       sessionStorage.setItem(COMMAND_ERRORS_KEY, JSON.stringify(errors));
     }
 
+    /** Mirrors Rust / src/lib/money.ts lineTotalMinor (6 dp scale). */
+    function lineTotalMinor(qty: number, unitMinor: number): number {
+      const SCALE = 1_000_000;
+      if (!Number.isFinite(qty) || !Number.isFinite(unitMinor)) {
+        return 0;
+      }
+      const qtyScaled = Math.round(qty * SCALE);
+      const product = qtyScaled * Math.trunc(unitMinor);
+      const half = SCALE / 2;
+      const rounded =
+        product >= 0
+          ? Math.trunc((product + half) / SCALE)
+          : Math.trunc((product - half) / SCALE);
+      return rounded <= 0 ? 0 : rounded;
+    }
+
     const state = {
       nextInvoiceId: 1,
       nextBillId: 1,
@@ -120,13 +136,13 @@ export async function installTauriMock(page: Page): Promise<void> {
         case "db_init":
           return Promise.resolve({
             dbPath: "mock.sqlite",
-            migrationVersion: 5,
+            migrationVersion: 6,
           });
         case "health_ping":
           return Promise.resolve({
             ok: true,
             sqliteOk: true,
-            migrationVersion: 5,
+            migrationVersion: 6,
             appVersion: "0.0.0-e2e",
             logLevel: "Info",
             slowIpcMs: 1500,
@@ -149,8 +165,9 @@ export async function installTauriMock(page: Page): Promise<void> {
           const subtotal = lines.reduce(
             (acc, l) =>
               acc +
-              Math.round(
-                Number(l.quantity ?? 0) * Number(l.unitPriceMinor ?? 0),
+              lineTotalMinor(
+                Number(l.quantity ?? 0),
+                Number(l.unitPriceMinor ?? 0),
               ),
             0,
           );
@@ -177,8 +194,9 @@ export async function installTauriMock(page: Page): Promise<void> {
               lineNumber: idx + 1,
               description: String(l.description ?? ""),
               quantity: Number(l.quantity ?? 0),
-              lineTotalMinor: Math.round(
-                Number(l.quantity ?? 0) * Number(l.unitPriceMinor ?? 0),
+              lineTotalMinor: lineTotalMinor(
+                Number(l.quantity ?? 0),
+                Number(l.unitPriceMinor ?? 0),
               ),
             })),
           );
@@ -332,6 +350,8 @@ export async function installTauriMock(page: Page): Promise<void> {
           const id = state.nextPaymentId++;
           return Promise.resolve(id);
         }
+        case "customer_payment_delete_unposted":
+          return Promise.resolve();
         case "customer_payment_post": {
           return Promise.resolve(state.nextJournalId++);
         }
@@ -339,6 +359,8 @@ export async function installTauriMock(page: Page): Promise<void> {
           const id = state.nextPaymentId++;
           return Promise.resolve(id);
         }
+        case "vendor_payment_delete_unposted":
+          return Promise.resolve();
         case "vendor_payment_post": {
           return Promise.resolve(state.nextJournalId++);
         }
@@ -351,8 +373,10 @@ export async function installTauriMock(page: Page): Promise<void> {
             id: Number(args.paymentId ?? 1),
             paymentDate: "2026-01-15",
             amountMinor: 10000,
+            paymentMethod: "check",
             method: "check",
             checkNumber: "1001",
+            payeeName: "Office Mart",
             checkPayee: "Office Mart",
             checkMemo: null,
             checkStyle: "voucher_top",
@@ -428,7 +452,7 @@ export async function installTauriMock(page: Page): Promise<void> {
           state.backupPath = String(args.destinationPath ?? state.backupPath);
           return Promise.resolve();
         case "db_restore_validate":
-          return Promise.resolve({ ok: true, migrationVersion: 5 });
+          return Promise.resolve({ ok: true, migrationVersion: 6 });
         case "db_restore_apply":
           return Promise.resolve();
         case "ipc_context_set":

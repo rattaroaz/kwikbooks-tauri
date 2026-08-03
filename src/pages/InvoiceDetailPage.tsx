@@ -18,15 +18,24 @@ export function InvoiceDetailPage() {
   const invoiceId = Number(id);
   const { push, pushApiError } = useToast();
   const [data, setData] = useState<InvDetailData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!Number.isFinite(invoiceId) || invoiceId <= 0) {
+      setLoadError("Invalid invoice id.");
+      setData(null);
+      return;
+    }
     try {
+      setLoadError(null);
       const d = await api.getInvoice(invoiceId);
       setData({
         header: d.header,
         lines: d.lines as JsonObject[],
       });
     } catch (e) {
+      setData(null);
+      setLoadError("Invoice could not be loaded.");
       pushApiError(e, logContext(PAGE, "load"));
     }
   }, [invoiceId, pushApiError]);
@@ -34,6 +43,18 @@ export function InvoiceDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  if (loadError) {
+    return (
+      <div className="kb-page">
+        <p>
+          <Link to="/invoices">← Invoices</Link>
+        </p>
+        <h1>Invoice</h1>
+        <p className="kb-error-text">{loadError}</p>
+      </div>
+    );
+  }
 
   if (!data) {
     return <div className="kb-page">Loading…</div>;
