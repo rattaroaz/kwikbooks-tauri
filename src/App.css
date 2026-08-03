@@ -792,6 +792,233 @@ button[type="submit"]:hover {
   white-space: pre-wrap;
 }
 
+/* ---- Check printing (US Letter voucher layouts) ---- */
+
+.kb-check-print-toolbar {
+  margin-bottom: 1rem;
+}
+
+.kb-check-print-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.kb-check-page {
+  position: relative;
+  width: 8.5in;
+  height: 11in;
+  margin: 0 auto;
+  background: #fff;
+  color: #111;
+  border: 1px solid #c8ccd6;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  font-family: "Segoe UI", Georgia, "Times New Roman", serif;
+  font-size: 11pt;
+}
+
+.kb-check-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3.5in;
+  padding: 0.35in 0.45in;
+  box-sizing: border-box;
+}
+
+.kb-check-band-top .kb-check-band {
+  top: 0;
+}
+
+.kb-check-band-middle .kb-check-band {
+  top: 3.75in;
+}
+
+.kb-check-band-bottom .kb-check-band {
+  bottom: 0;
+  top: auto;
+}
+
+.kb-check-stub {
+  position: absolute;
+  left: 0.45in;
+  right: 0.45in;
+  font-size: 9pt;
+  color: #444;
+  border-top: 1px dashed #bbb;
+  padding-top: 0.2in;
+}
+
+.kb-check-stub-title {
+  font-weight: 600;
+  margin-bottom: 0.15in;
+}
+
+.kb-check-band-top .kb-check-stub-a {
+  top: 3.7in;
+}
+
+.kb-check-band-top .kb-check-stub-b {
+  top: 7.3in;
+}
+
+.kb-check-band-middle .kb-check-stub-a {
+  top: 0.35in;
+}
+
+.kb-check-band-middle .kb-check-stub-b {
+  top: 7.5in;
+}
+
+.kb-check-band-bottom .kb-check-stub-a {
+  top: 0.35in;
+}
+
+.kb-check-band-bottom .kb-check-stub-b {
+  top: 3.9in;
+}
+
+.kb-check-face {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.kb-check-company {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: 3.2in;
+  line-height: 1.25;
+}
+
+.kb-check-company-name {
+  font-weight: 700;
+  font-size: 12pt;
+}
+
+.kb-check-company-line {
+  font-size: 9pt;
+}
+
+.kb-check-number-field {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-weight: 600;
+}
+
+.kb-check-date-field {
+  position: absolute;
+  top: 0.55in;
+  right: 0;
+  min-width: 1.6in;
+}
+
+.kb-check-payee-field {
+  position: absolute;
+  top: 1.15in;
+  left: 0;
+  right: 1.7in;
+}
+
+.kb-check-amount-num-field {
+  position: absolute;
+  top: 1.15in;
+  right: 0;
+  min-width: 1.5in;
+  text-align: right;
+  font-weight: 600;
+}
+
+.kb-check-amount-words-field {
+  position: absolute;
+  top: 1.75in;
+  left: 0;
+  right: 0.5in;
+}
+
+.kb-check-dollars-suffix {
+  margin-left: 0.25in;
+  font-style: italic;
+}
+
+.kb-check-memo-field {
+  position: absolute;
+  bottom: 0.45in;
+  left: 0;
+  width: 3.2in;
+}
+
+.kb-check-signature-field {
+  position: absolute;
+  bottom: 0.35in;
+  right: 0;
+  width: 2.6in;
+  border-top: 1px solid #333;
+  padding-top: 0.1in;
+}
+
+.kb-check-label {
+  display: block;
+  font-size: 8pt;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.kb-check-value {
+  display: block;
+  border-bottom: 1px solid #333;
+  min-height: 1.2em;
+  padding: 0.05in 0.05in 0.08in;
+}
+
+.kb-check-guides .kb-check-value,
+.kb-check-guides .kb-check-company,
+.kb-check-guides .kb-check-amount-num-field,
+.kb-check-guides .kb-check-signature-field {
+  outline: 1px dashed #6a8;
+}
+
+@media print {
+  .kb-no-print,
+  .kb-sidebar,
+  .kb-toasts,
+  .kb-skip-link {
+    display: none !important;
+  }
+
+  .kb-shell,
+  .kb-main,
+  .kb-page,
+  .kb-check-print-page {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .kb-check-page {
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    width: 8.5in;
+    height: 11in;
+    page-break-after: avoid;
+  }
+
+  @page {
+    size: letter;
+    margin: 0;
+  }
+}
+
 @media (max-width: 720px) {
   .kb-shell {
     flex-direction: column;

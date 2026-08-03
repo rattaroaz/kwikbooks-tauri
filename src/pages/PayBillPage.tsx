@@ -96,7 +96,28 @@ export function PayBillPage() {
       <h1>Pay vendor</h1>
       <p className="kb-muted">
         Records a vendor payment and posts it to the general ledger (AP debit,
-        bank credit).
+        bank credit). To print a paper check, use{" "}
+        <Link to="/checks/write">Write check</Link>
+        {billIdStr.trim()
+          ? ` with bill ${billIdStr.trim()}`
+          : ""}
+        .
+      </p>
+      <p className="kb-muted">
+        <Link
+          to={
+            billIdStr.trim() || vendorId
+              ? `/checks/write?${[
+                  vendorId ? `vendorId=${vendorId}` : "",
+                  billIdStr.trim() ? `billId=${billIdStr.trim()}` : "",
+                ]
+                  .filter(Boolean)
+                  .join("&")}`
+              : "/checks/write"
+          }
+        >
+          Pay with check…
+        </Link>
       </p>
       {banks.length === 0 && (
         <p className="kb-error-text">

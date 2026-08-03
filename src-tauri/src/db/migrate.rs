@@ -7,10 +7,16 @@ const M001_INITIAL: &str = include_str!("../../migrations/001_initial.sql");
 const M002_DOMAIN: &str = include_str!("../../migrations/002_domain.sql");
 const M003_SEQUENCES: &str = include_str!("../../migrations/003_company_sequences.sql");
 const M004_INDEXES: &str = include_str!("../../migrations/004_performance_indexes.sql");
+const M005_CHECKS: &str = include_str!("../../migrations/005_checks.sql");
 
 /// Ordered migrations: `(version, SQL batch)`.
-static MIGRATIONS: &[(i32, &str)] =
-    &[(1, M001_INITIAL), (2, M002_DOMAIN), (3, M003_SEQUENCES), (4, M004_INDEXES)];
+static MIGRATIONS: &[(i32, &str)] = &[
+    (1, M001_INITIAL),
+    (2, M002_DOMAIN),
+    (3, M003_SEQUENCES),
+    (4, M004_INDEXES),
+    (5, M005_CHECKS),
+];
 
 fn ensure_migrations_table(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute_batch(
@@ -112,7 +118,7 @@ mod tests {
         run_all(&p).expect("first run");
         let mut c = open_sqlite(&p).expect("open");
         let v1 = current_version(&c).expect("v1");
-        assert!(v1 >= 4, "expected migration head including performance indexes");
+        assert!(v1 >= 5, "expected migration head including checks");
         run_all_on_connection(&mut c).expect("second run");
         let v2 = current_version(&c).expect("v2");
         assert_eq!(v1, v2);

@@ -34,6 +34,19 @@ vi.mock("../api/tauri", () => ({
   importQuickbooksFile: vi.fn(),
 }));
 
+vi.mock("../api/db", () => ({
+  healthPing: vi.fn(() =>
+    Promise.resolve({
+      ok: true,
+      sqliteOk: true,
+      migrationVersion: 5,
+      appVersion: "1.1.0",
+      logLevel: "Info",
+      slowIpcMs: 1500,
+    }),
+  ),
+}));
+
 describe("SettingsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();

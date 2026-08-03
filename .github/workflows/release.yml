@@ -15,8 +15,9 @@ permissions:
 
 jobs:
   build-windows:
+    name: build-windows (${{ matrix.arch }})
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - arch: x64
@@ -39,6 +40,10 @@ jobs:
       - run: npm ci
 
       - uses: dtolnay/rust-toolchain@stable
+
+      - name: Add ARM64 Rust target
+        if: matrix.arch == 'arm64'
+        run: rustup target add aarch64-pc-windows-msvc
 
       - name: Install LLVM (Windows ARM64)
         if: matrix.needs_llvm
@@ -101,3 +106,19 @@ jobs:
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
+
+  validate-updater-manifest:
+    name: validate-updater-manifest
+    needs: build-windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify latest.json includes Windows ARM64
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          url="https://github.com/rattaroaz/kwikbooks-tauri/releases/download/${RELEASE_TAG}/latest.json"
+          echo "Checking ${url}"
+          json="$(curl -fsSL "${url}")"
+          echo "${json}" | jq -e '.platforms["windows-aarch64"]' >/dev/null
+          echo "windows-aarch64 entry present in latest.json"

@@ -31,12 +31,14 @@ Do **not** use `npm run dev` alone for real work — that is Vite only; IPC and 
 
 Copy [`.env.example`](.env.example) to `.env` or `.env.local` for Vite overrides.
 
-| Variable                   | Default   | Meaning                             |
-| -------------------------- | --------- | ----------------------------------- |
-| `VITE_VERBOSE_IPC`         | on in dev | Log each IPC call (redacted args)   |
-| `VITE_LOG_CONSOLE_FORWARD` | on in dev | Forward `console.*` to host logs    |
-| `VITE_SLOW_IPC_MS`         | `1500`    | Warn when IPC exceeds this (ms)     |
-| `VITE_TELEMETRY`           | off       | Reserved; no remote telemetry in v1 |
+| Variable                   | Default   | Meaning                                      |
+| -------------------------- | --------- | -------------------------------------------- |
+| `VITE_VERBOSE_IPC`         | on in dev | Log each IPC call (redacted args)            |
+| `VITE_LOG_CONSOLE_FORWARD` | on in dev | Forward `console.*` to host logs             |
+| `VITE_SLOW_IPC_MS`         | `1500`    | Warn when IPC exceeds this (ms)              |
+| `VITE_DIAGNOSTICS`         | on in DEV | Attach breadcrumbs/meta to local captures    |
+
+`VITE_TELEMETRY` is accepted as a legacy alias for `VITE_DIAGNOSTICS`. Observability is **offline-only** — exceptions and logs never leave the machine.
 
 Host (Rust) logging:
 
@@ -46,9 +48,11 @@ Host (Rust) logging:
 | `KWIKBOOKS_LOG_JSON`         | `1` for JSON lines                |
 | `KWIKBOOKS_SLOW_MS`          | Slow invoke threshold on the host |
 
-## Logs & backups
+## Logs & diagnostics
 
-- Logs: OS log directory via `tauri-plugin-log` (`kwikbooks.log`, `webview.log`), plus terminal in dev.
+- Logs: OS log directory via `tauri-plugin-log` (`kwikbooks.log`, `webview.log`, rotated KeepAll), plus `panic.log` for Rust panics, and terminal in dev.
+- Settings → **Diagnostics** → **View logs**: live tail, level filter, **Copy**, and **Export…** (redacted support bundle for sharing).
+- IPC: request `rid` + host `seq`, slow-call warnings on both sides, breadcrumb ring for local exception context.
 - Database: app data dir (printed at startup). **Backup / restore** in Settings — backup files are full SQLite copies (all company data).
 
 ## Tests & CI
@@ -68,7 +72,7 @@ Updates are **manual only** (Settings → **Check for updates**). The app fetche
 1. Bump version in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` (keep in sync).
 2. Commit and push to `main`.
 3. `git tag vX.Y.Z && git push origin vX.Y.Z`
-4. GitHub Actions **Release** workflow builds **x64** and **ARM64** Windows installers (NSIS + MSI each), uploads `latest.json` and `.sig` files.
+4. GitHub Actions **Release** workflow builds **x64** and **ARM64** Windows installers (NSIS + MSI each), uploads `latest.json` and `.sig` files. Both matrix jobs must succeed — the workflow validates that `latest.json` contains `windows-aarch64`. Tag releases from a commit that includes the ARM64 workflow (`.github/workflows/release.yml` matrix).
 
 **Repository secrets** (required for signed releases):
 

@@ -89,6 +89,14 @@ pub struct VendorPaymentCreateInput {
     pub amount_minor: i64,
     pub memo: Option<String>,
     pub bill_id: Option<i64>,
+    #[serde(default = "default_payment_method")]
+    pub payment_method: String,
+    pub check_number: Option<String>,
+    pub payee_name: Option<String>,
+}
+
+fn default_payment_method() -> String {
+    "other".into()
 }
 
 fn line_total_minor(qty: f64, unit_minor: i64) -> i64 {
@@ -320,32 +328,115 @@ pub fn vendor_payment_create(
     input: VendorPaymentCreateInput,
 ) -> Result<i64, DbCommandError> {
     timed_ipc("vendor_payment_create", || {
-        let amt = input.amount_minor;
-        let vid = input.vendor_id;
-        let conn = open_sqlite(&state.db_path)?;
-        conn.execute(
-            r#"INSERT INTO vendor_payment
-           (company_id, vendor_id, bank_account_id, payment_date, amount_minor, memo, bill_id)
-           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)"#,
-            rusqlite::params![
-                COMPANY_ID,
-                input.vendor_id,
-                input.bank_account_id,
-                input.payment_date,
-                input.amount_minor,
-                input.memo,
-                input.bill_id,
-            ],
+        vendor_payment_create_impl(&state.db_path, input)
+    })
+}
+
+pub(crate) fn vendor_payment_create_impl(
+    db_path: &std::path::Path,
+    input: VendorPaymentCreateInput,
+) -> Result<i64, DbCommandError> {
+    let amt = input.amount_minor;
+    let vid = input.vendor_id;
+    let method = input.payment_method.trim().to_ascii_lowercase();
+    if method != "check" && method != "other" {
+        return Err(DbCommandError::Validation {
+            message: "paymentMethod must be check or other".into(),
+        });
+    }
+    if amt <= 0 {
+        return Err(DbCommandError::Validation {
+            message: "amount must be greater than zero".into(),
+        });
+    }
+
+    let mut conn = open_sqlite(db_path)?;
+    let tx = conn.transaction()?;
+
+    let check_number = if method == "check" {
+        let provided = input
+            .check_number
+            .as_ref()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+        let next: i64 = tx.query_row(
+            "SELECT next_check_number FROM company WHERE id = ?1",
+            [COMPANY_ID],
+            |row| row.get(0),
         )?;
-        let id = conn.last_insert_rowid();
-        log::debug!(
-            target: "kwikbooks_lib::ipc::docs",
-            "vendor_payment_created id={} vendor_id={} amount_minor={}",
-            id,
-            vid,
-            amt
-        );
-        Ok(id)
+        let number = provided.unwrap_or_else(|| next.to_string());
+        if number.parse::<i64>().ok() == Some(next) {
+            tx.execute(
+                "UPDATE company SET next_check_number = ?1, updated_at = datetime('now') WHERE id = ?2",
+                rusqlite::params![next + 1, COMPANY_ID],
+            )?;
+        }
+        Some(number)
+    } else {
+        input
+            .check_number
+            .as_ref()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    };
+
+    let payee = input
+        .payee_name
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    tx.execute(
+        r#"INSERT INTO vendor_payment
+           (company_id, vendor_id, bank_account_id, payment_date, amount_minor, memo, bill_id,
+            check_number, payment_method, payee_name)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"#,
+        rusqlite::params![
+            COMPANY_ID,
+            input.vendor_id,
+            input.bank_account_id,
+            input.payment_date,
+            input.amount_minor,
+            input.memo,
+            input.bill_id,
+            check_number,
+            method,
+            payee,
+        ],
+    )?;
+    let id = tx.last_insert_rowid();
+    tx.commit()?;
+    log::debug!(
+        target: "kwikbooks_lib::ipc::docs",
+        "vendor_payment_created id={} vendor_id={} amount_minor={} method={}",
+        id,
+        vid,
+        amt,
+        method
+    );
+    Ok(id)
+}
+
+#[tauri::command]
+pub fn vendor_payment_mark_printed(
+    state: State<'_, DbState>,
+    payment_id: i64,
+) -> Result<(), DbCommandError> {
+    timed_ipc("vendor_payment_mark_printed", || {
+        let conn = open_sqlite(&state.db_path)?;
+        let n = conn.execute(
+            r#"UPDATE vendor_payment
+               SET check_printed_at = datetime('now')
+               WHERE id = ?1 AND company_id = ?2 AND payment_method = 'check'"#,
+            rusqlite::params![payment_id, COMPANY_ID],
+        )?;
+        if n == 0 {
+            return Err(DbCommandError::NotFound {
+                entity: "vendor_payment".into(),
+                id: payment_id,
+            });
+        }
+        Ok(())
     })
 }
 
@@ -414,5 +505,85 @@ mod tests {
         assert_eq!(parsed.vendor_id, None);
         assert_eq!(parsed.payee_name.as_deref(), Some("Independent Payee"));
         assert_eq!(parsed.lines[0].amount_minor, 900);
+    }
+
+    #[test]
+    fn vendor_payment_create_input_defaults_method_to_other() {
+        let payload = serde_json::json!({
+            "vendorId": 1,
+            "bankAccountId": 2,
+            "paymentDate": "2026-06-01",
+            "amountMinor": 500,
+        });
+        let parsed: VendorPaymentCreateInput =
+            serde_json::from_value(payload).expect("deserialize payment");
+        assert_eq!(parsed.payment_method, "other");
+    }
+
+    #[test]
+    fn check_payment_advances_next_check_number_when_using_sequence() {
+        use crate::db::{open_sqlite, run_all_on_connection};
+        use tempfile::tempdir;
+
+        let dir = tempdir().expect("tmp");
+        let p = dir.path().join("checks.sqlite");
+        {
+            let mut c = open_sqlite(&p).expect("open");
+            run_all_on_connection(&mut c).expect("migrate");
+            c.execute(
+                "INSERT INTO account (company_id, code, name, account_type, is_bank_cash)
+                 VALUES (1, '1099', 'Operating Checking', 'asset', 1)",
+                [],
+            )
+            .expect("bank");
+            let bank_id = c.last_insert_rowid();
+            c.execute(
+                "INSERT INTO vendor (company_id, display_name) VALUES (1, 'Office Depot')",
+                [],
+            )
+            .expect("vendor");
+            let vendor_id = c.last_insert_rowid();
+            c.execute(
+                "UPDATE company SET next_check_number = 500 WHERE id = 1",
+                [],
+            )
+            .expect("seq");
+
+            let id = vendor_payment_create_impl(
+                &p,
+                VendorPaymentCreateInput {
+                    vendor_id,
+                    bank_account_id: bank_id,
+                    payment_date: "2026-06-13".into(),
+                    amount_minor: 2500,
+                    memo: Some("supplies".into()),
+                    bill_id: None,
+                    payment_method: "check".into(),
+                    check_number: Some("500".into()),
+                    payee_name: None,
+                },
+            )
+            .expect("create check");
+            assert!(id > 0);
+
+            let next: i64 = c
+                .query_row(
+                    "SELECT next_check_number FROM company WHERE id = 1",
+                    [],
+                    |row| row.get(0),
+                )
+                .expect("next");
+            assert_eq!(next, 501);
+
+            let (method, check_no): (String, String) = c
+                .query_row(
+                    "SELECT payment_method, check_number FROM vendor_payment WHERE id = ?1",
+                    [id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .expect("payment");
+            assert_eq!(method, "check");
+            assert_eq!(check_no, "500");
+        }
     }
 }

@@ -37,6 +37,8 @@ test("settings view logs opens right panel with level filters", async ({
   await expect(page.getByTestId("logs-body")).not.toContainText(
     "Kwikbooks starting",
   );
+  await expect(page.getByTestId("logs-copy")).toBeVisible();
+  await expect(page.getByTestId("logs-export")).toBeVisible();
 
   await page.getByTestId("logs-close").click();
   await expect(panel).toHaveCount(0);

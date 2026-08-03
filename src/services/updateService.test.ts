@@ -88,6 +88,18 @@ describe("checkForUpdatesAndApply", () => {
     expect(getUpdateDialogSnapshot().message).toMatch(/No update feed/i);
   });
 
+  it("shows ARM64 guidance when the release feed omits windows-aarch64", async () => {
+    checkMock.mockRejectedValue(
+      new Error(
+        'None of the fallback platforms `["windows-aarch64-msi", "windows-aarch64"]` were found in the response `platforms` object',
+      ),
+    );
+    const { checkForUpdatesAndApply } = await import("./updateService");
+    await checkForUpdatesAndApply();
+    expect(getUpdateDialogSnapshot().phase).toBe("error");
+    expect(getUpdateDialogSnapshot().message).toMatch(/Windows ARM64 update/i);
+  });
+
   it("shows raw error for other failures", async () => {
     checkMock.mockRejectedValue(new Error("network down"));
     const { checkForUpdatesAndApply } = await import("./updateService");

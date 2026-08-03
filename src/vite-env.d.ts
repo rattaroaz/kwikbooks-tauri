@@ -6,7 +6,9 @@ interface ImportMetaEnv {
   readonly VITE_ENABLE_DEVTOOLS?: string;
   /** Gate experimental UI; default off. */
   readonly VITE_FEATURE_EXPERIMENTAL_UI?: string;
-  /** Opt-in telemetry hooks (default off; none sent in v1). */
+  /** Verbose local diagnostics on capture (default: on in DEV). Offline-only. */
+  readonly VITE_DIAGNOSTICS?: string;
+  /** @deprecated Prefer VITE_DIAGNOSTICS — same local-only meaning. */
   readonly VITE_TELEMETRY?: string;
   /** Verbose per-invoke frontend logs (default mirrors dev build). */
   readonly VITE_VERBOSE_IPC?: string;

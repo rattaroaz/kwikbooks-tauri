@@ -15,6 +15,7 @@ const links = [
   { to: "/bills", label: "Bills" },
   { to: "/payments/receive", label: "Receive payment" },
   { to: "/payments/pay", label: "Pay vendor" },
+  { to: "/checks/write", label: "Write check" },
   { to: "/register", label: "Journal register" },
   { to: "/reports", label: "Reports" },
   { to: "/settings", label: "Settings" },

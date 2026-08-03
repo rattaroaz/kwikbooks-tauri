@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 use crate::db::DbCommandError;
-use crate::ipc_context::take_request_id;
+use crate::ipc_context::{clear_request_id, peek_request_id};
 
 pub const IPC_TARGET: &str = "kwikbooks_lib::ipc";
 
@@ -102,7 +102,7 @@ pub fn timed_ipc<T>(
     f: impl FnOnce() -> Result<T, DbCommandError>,
 ) -> Result<T, DbCommandError> {
     let seq = next_seq();
-    let rid = take_request_id();
+    let rid = peek_request_id();
     let rid_s = format_rid(&rid);
     let start = Instant::now();
     log::debug!(
@@ -139,6 +139,7 @@ pub fn timed_ipc<T>(
         }
         Err(e) => log_db_error(command, seq, &rid, elapsed_ms, e),
     }
+    clear_request_id();
     result
 }
 

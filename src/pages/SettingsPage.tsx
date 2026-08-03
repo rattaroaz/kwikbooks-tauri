@@ -1,5 +1,6 @@
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { FormEvent, useEffect, useState } from "react";
+import { healthPing, type HealthResponse } from "../api/db";
 import * as api from "../api/tauri";
 import type { JsonObject } from "../api/tauri";
 import { useToast } from "../context/ToastContext";
@@ -25,6 +26,14 @@ export function SettingsPage() {
   const [currency, setCurrency] = useState("USD");
   const [nextInv, setNextInv] = useState("1000");
   const [nextBill, setNextBill] = useState("1000");
+  const [addressLine1, setAddressLine1] = useState("");
+  const [addressLine2, setAddressLine2] = useState("");
+  const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [nextCheck, setNextCheck] = useState("1000");
+  const [defaultCheckStyle, setDefaultCheckStyle] = useState("voucher_top");
+  const [health, setHealth] = useState<HealthResponse | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -36,11 +45,28 @@ export function SettingsPage() {
         setCurrency(String(c.baseCurrencyCode ?? "USD"));
         setNextInv(String(c.nextInvoiceNumber ?? "1000"));
         setNextBill(String(c.nextBillNumber ?? "1000"));
+        setAddressLine1(String(c.addressLine1 ?? ""));
+        setAddressLine2(String(c.addressLine2 ?? ""));
+        setCity(String(c.city ?? ""));
+        setRegion(String(c.region ?? ""));
+        setPostalCode(String(c.postalCode ?? ""));
+        setNextCheck(String(c.nextCheckNumber ?? "1000"));
+        setDefaultCheckStyle(String(c.defaultCheckStyle ?? "voucher_top"));
       } catch (e) {
         pushApiError(e, logContext(PAGE, "load"));
       }
     })();
   }, [pushApiError]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        setHealth(await healthPing());
+      } catch {
+        /* optional diagnostics — company load already surfaces hard failures */
+      }
+    })();
+  }, []);
 
   async function onBackup() {
     try {
@@ -130,6 +156,13 @@ export function SettingsPage() {
         baseCurrencyCode: currency.trim().toUpperCase(),
         nextInvoiceNumber: Number(nextInv),
         nextBillNumber: Number(nextBill),
+        addressLine1: addressLine1.trim() || undefined,
+        addressLine2: addressLine2.trim() || undefined,
+        city: city.trim() || undefined,
+        region: region.trim() || undefined,
+        postalCode: postalCode.trim() || undefined,
+        nextCheckNumber: Number(nextCheck),
+        defaultCheckStyle,
       });
       void log.info("company profile saved");
       push("success", "Company saved");
@@ -185,6 +218,56 @@ export function SettingsPage() {
             onChange={(e) => setNextBill(e.target.value)}
           />
         </label>
+        <label>
+          Address line 1
+          <input
+            value={addressLine1}
+            onChange={(e) => setAddressLine1(e.target.value)}
+          />
+        </label>
+        <label>
+          Address line 2
+          <input
+            value={addressLine2}
+            onChange={(e) => setAddressLine2(e.target.value)}
+          />
+        </label>
+        <label>
+          City
+          <input value={city} onChange={(e) => setCity(e.target.value)} />
+        </label>
+        <label>
+          State / region
+          <input value={region} onChange={(e) => setRegion(e.target.value)} />
+        </label>
+        <label>
+          Postal code
+          <input
+            value={postalCode}
+            onChange={(e) => setPostalCode(e.target.value)}
+          />
+        </label>
+        <label>
+          Next check #
+          <input
+            value={nextCheck}
+            onChange={(e) => setNextCheck(e.target.value)}
+            data-testid="settings-next-check"
+          />
+        </label>
+        <label>
+          Default check stock layout
+          <select
+            value={defaultCheckStyle}
+            onChange={(e) => setDefaultCheckStyle(e.target.value)}
+            data-testid="settings-check-style"
+          >
+            <option value="voucher_top">Voucher — check on top</option>
+            <option value="voucher_middle">Voucher — check in middle</option>
+            <option value="voucher_bottom">Voucher — check on bottom</option>
+            <option value="generic">Generic (alignment guides)</option>
+          </select>
+        </label>
         <button type="submit" data-testid="settings-save">
           Save
         </button>
@@ -233,9 +316,21 @@ export function SettingsPage() {
       <section className="kb-settings-extra">
         <h2>Diagnostics</h2>
         <p className="kb-muted">
-          View recent application and webview log entries written by Kwikbooks
-          on this computer.
+          Offline-only. Logs, panics, and exception captures stay on this
+          computer. From the log viewer you can copy lines or export a redacted
+          support bundle to share.
         </p>
+        {health ? (
+          <dl className="kb-muted" data-testid="settings-health">
+            <div>
+              Host {health.appVersion} · schema v{health.migrationVersion} ·
+              SQLite {health.sqliteOk ? "ok" : "fail"}
+            </div>
+            <div>
+              Log level {health.logLevel} · slow IPC {health.slowIpcMs}ms
+            </div>
+          </dl>
+        ) : null}
         <div className="kb-actions">
           <button
             type="button"

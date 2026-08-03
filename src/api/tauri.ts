@@ -141,6 +141,18 @@ export async function vendorPaymentCreate(payload: JsonObject) {
   return invoke<number>("vendor_payment_create", { input: payload });
 }
 
+export async function vendorPaymentMarkPrinted(paymentId: number) {
+  return invoke<void>("vendor_payment_mark_printed", { paymentId });
+}
+
+export async function listVendorPayments() {
+  return invoke<unknown[]>("list_vendor_payments");
+}
+
+export async function getVendorPayment(paymentId: number) {
+  return invoke<JsonObject>("get_vendor_payment", { paymentId });
+}
+
 /** Posting & lifecycle */
 export async function invoicePost(invoiceId: number) {
   return invoke<number>("invoice_post", { invoiceId });
@@ -213,4 +225,22 @@ export type LogsReadResponse = {
 
 export async function logsRead(maxLines?: number) {
   return invoke<LogsReadResponse>("logs_read", { maxLines });
+}
+
+export type LogsExportResponse = {
+  path: string;
+  bytesWritten: number;
+  lineCount: number;
+};
+
+export async function logsExportSupportBundle(
+  destinationPath: string,
+  maxLines?: number,
+  extraContext?: string,
+) {
+  return invoke<LogsExportResponse>("logs_export_support_bundle", {
+    destinationPath,
+    maxLines,
+    extraContext,
+  });
 }

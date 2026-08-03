@@ -67,6 +67,13 @@ export async function installTauriMock(page: Page): Promise<void> {
         baseCurrencyCode: "USD",
         nextInvoiceNumber: 1000,
         nextBillNumber: 2000,
+        addressLine1: "123 Main St",
+        addressLine2: "",
+        city: "Springfield",
+        region: "IL",
+        postalCode: "62701",
+        nextCheckNumber: 1000,
+        defaultCheckStyle: "voucher_top",
       },
       customers: [{ id: 1, displayName: "Acme Corp" }] as Customer[],
       vendors: [{ id: 1, displayName: "Office Mart" }] as Vendor[],
@@ -113,13 +120,16 @@ export async function installTauriMock(page: Page): Promise<void> {
         case "db_init":
           return Promise.resolve({
             dbPath: "mock.sqlite",
-            migrationVersion: 4,
+            migrationVersion: 5,
           });
         case "health_ping":
           return Promise.resolve({
             ok: true,
             sqliteOk: true,
-            migrationVersion: 4,
+            migrationVersion: 5,
+            appVersion: "0.0.0-e2e",
+            logLevel: "Info",
+            slowIpcMs: 1500,
           });
         case "company_get":
           return Promise.resolve({ ...state.company });
@@ -332,6 +342,24 @@ export async function installTauriMock(page: Page): Promise<void> {
         case "vendor_payment_post": {
           return Promise.resolve(state.nextJournalId++);
         }
+        case "vendor_payment_mark_printed":
+          return Promise.resolve();
+        case "list_vendor_payments":
+          return Promise.resolve([]);
+        case "get_vendor_payment":
+          return Promise.resolve({
+            id: Number(args.paymentId ?? 1),
+            paymentDate: "2026-01-15",
+            amountMinor: 10000,
+            method: "check",
+            checkNumber: "1001",
+            checkPayee: "Office Mart",
+            checkMemo: null,
+            checkStyle: "voucher_top",
+            checkPrintedAt: null,
+            status: "posted",
+            allocations: [],
+          });
         case "report_profit_loss":
           return Promise.resolve({
             incomeLines: [{ code: "4000", name: "Sales", amountMinor: 10000 }],
@@ -390,11 +418,17 @@ export async function installTauriMock(page: Page): Promise<void> {
               },
             ],
           });
+        case "logs_export_support_bundle":
+          return Promise.resolve({
+            path: String(args.destinationPath ?? "C:\\Mock\\support.txt"),
+            bytesWritten: 128,
+            lineCount: 2,
+          });
         case "db_backup_vacuum":
           state.backupPath = String(args.destinationPath ?? state.backupPath);
           return Promise.resolve();
         case "db_restore_validate":
-          return Promise.resolve({ ok: true, migrationVersion: 4 });
+          return Promise.resolve({ ok: true, migrationVersion: 5 });
         case "db_restore_apply":
           return Promise.resolve();
         case "ipc_context_set":

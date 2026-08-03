@@ -1,6 +1,6 @@
 [package]
 name = "kwikbooks"
-version = "1.0.0"
+version = "1.1.0"
 description = "Kwikbooks — local accounting (Tauri + React + SQLite)"
 authors = ["you"]
 edition = "2021"

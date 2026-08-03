@@ -1,7 +1,7 @@
 use crate::db::DbCommandError;
-use crate::ipc_log::timed_ipc;
+use crate::ipc_log::{slow_threshold_ms, timed_ipc};
 use serde::Serialize;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use tauri::Manager;
 
@@ -20,8 +20,17 @@ pub struct LogsReadResponse {
     pub lines: Vec<LogLine>,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogsExportResponse {
+    pub path: String,
+    pub bytes_written: u64,
+    pub line_count: usize,
+}
+
 const DEFAULT_MAX_LINES: usize = 500;
 const MAX_ALLOWED_LINES: usize = 5_000;
+const EXPORT_MAX_LINES: usize = 5_000;
 const TAIL_READ_BYTES: u64 = 512_000;
 
 /// Sort key from `[YYYY-MM-DD][HH:MM:SS]` plugin-log prefix (lexicographic = chronological).
@@ -90,6 +99,38 @@ fn strip_ansi(text: &str) -> String {
     out
 }
 
+/// Redact absolute home / profile paths for support bundles shared off-machine.
+pub(crate) fn redact_paths(text: &str) -> String {
+    let mut out = text.to_string();
+    let mut needles: Vec<String> = Vec::new();
+    if let Ok(home) = std::env::var("USERPROFILE") {
+        if !home.is_empty() {
+            needles.push(home);
+        }
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        if !home.is_empty() {
+            needles.push(home);
+        }
+    }
+    if let Ok(user) = std::env::var("USERNAME").or_else(|_| std::env::var("USER")) {
+        if user.len() >= 2 {
+            needles.push(format!(r"\Users\{user}"));
+            needles.push(format!("/Users/{user}"));
+            needles.push(format!("/home/{user}"));
+        }
+    }
+    needles.sort_by_key(|a| std::cmp::Reverse(a.len()));
+    needles.dedup();
+    for n in needles {
+        if n.len() < 3 {
+            continue;
+        }
+        out = out.replace(&n, "<REDACTED_HOME>");
+    }
+    out
+}
+
 fn tail_lines(path: &Path, max_lines: usize) -> std::io::Result<Vec<String>> {
     let mut file = std::fs::File::open(path)?;
     let len = file.metadata()?.len();
@@ -122,7 +163,11 @@ fn log_files_with_prefix(dir: &Path, prefix: &str) -> Vec<PathBuf> {
     };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
-        if name == prefix || name.starts_with(&format!("{prefix}.")) {
+        if name == prefix
+            || name.starts_with(&format!("{prefix}."))
+            || name == format!("{prefix}.log")
+            || (name.starts_with(prefix) && name.ends_with(".log"))
+        {
             files.push(entry.path());
         }
     }
@@ -150,6 +195,31 @@ fn read_source_lines(dir: &Path, prefix: &str, source: &str, max_lines: usize) -
     merged
 }
 
+fn collect_lines(log_dir: &Path, max_lines: usize) -> Vec<LogLine> {
+    let mut lines = read_source_lines(log_dir, "kwikbooks", "app", max_lines);
+    lines.extend(read_source_lines(log_dir, "webview", "webview", max_lines));
+
+    // Include panic.log as a dedicated source if present.
+    let panic_path = log_dir.join("panic.log");
+    if panic_path.is_file() {
+        if let Ok(extra) = tail_lines(&panic_path, max_lines.min(200)) {
+            for line in extra {
+                lines.push(LogLine {
+                    level: "error".into(),
+                    source: "panic".into(),
+                    line,
+                });
+            }
+        }
+    }
+
+    lines.sort_by(compare_log_lines);
+    if lines.len() > max_lines {
+        lines = lines.split_off(lines.len() - max_lines);
+    }
+    lines
+}
+
 /// Returns recent application log lines from the OS log directory (native + webview).
 #[tauri::command]
 pub fn logs_read(
@@ -164,17 +234,85 @@ pub fn logs_read(
         let log_dir = app.path().app_log_dir().map_err(|e| DbCommandError::PathResolution {
             message: format!("log directory unavailable: {e}"),
         })?;
-        let mut lines = read_source_lines(&log_dir, "kwikbooks", "app", max_lines);
-        lines.extend(read_source_lines(&log_dir, "webview", "webview", max_lines));
-        lines.sort_by(compare_log_lines);
-        if lines.len() > max_lines {
-            lines = lines.split_off(lines.len() - max_lines);
-        }
+        let lines = collect_lines(&log_dir, max_lines);
         Ok(LogsReadResponse {
             log_dir: log_dir.to_string_lossy().into_owned(),
             lines,
         })
     })
+}
+
+/// Write a redacted offline support bundle (text) to `destination_path`.
+/// Optional `extra_context` is appended (e.g. UI breadcrumbs from the webview).
+#[tauri::command]
+pub fn logs_export_support_bundle(
+    app: tauri::AppHandle,
+    destination_path: String,
+    max_lines: Option<u32>,
+    extra_context: Option<String>,
+) -> Result<LogsExportResponse, DbCommandError> {
+    timed_ipc("logs_export_support_bundle", || {
+        let max_lines = max_lines
+            .map(|n| n as usize)
+            .unwrap_or(EXPORT_MAX_LINES)
+            .clamp(1, MAX_ALLOWED_LINES);
+        let log_dir = app.path().app_log_dir().map_err(|e| DbCommandError::PathResolution {
+            message: format!("log directory unavailable: {e}"),
+        })?;
+        let lines = collect_lines(&log_dir, max_lines);
+        let dest = PathBuf::from(&destination_path);
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        let mut body = String::new();
+        body.push_str("# Kwikbooks offline support bundle\n");
+        body.push_str("# Paths and usernames are redacted. Nothing was transmitted off-device.\n");
+        body.push_str(&format!(
+            "generated_at={}\napp_version={}\nos={}\narch={}\nlog_level={:?}\nslow_ms={}\nlog_dir={}\nline_count={}\n\n",
+            chrono_like_now(),
+            env!("CARGO_PKG_VERSION"),
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+            crate::logging::max_level_from_env(),
+            slow_threshold_ms(),
+            redact_paths(&log_dir.to_string_lossy()),
+            lines.len(),
+        ));
+        if let Some(ctx) = extra_context.as_ref().filter(|s| !s.trim().is_empty()) {
+            body.push_str("## Client context (breadcrumbs / meta)\n");
+            body.push_str(&redact_paths(ctx));
+            if !ctx.ends_with('\n') {
+                body.push('\n');
+            }
+            body.push('\n');
+        }
+        body.push_str("## Log lines\n");
+        for entry in &lines {
+            let redacted = redact_paths(&entry.line);
+            body.push_str(&format!(
+                "[{}][{}] {}\n",
+                entry.source, entry.level, redacted
+            ));
+        }
+
+        let mut file = std::fs::File::create(&dest)?;
+        file.write_all(body.as_bytes())?;
+        Ok(LogsExportResponse {
+            path: dest.to_string_lossy().into_owned(),
+            bytes_written: body.len() as u64,
+            line_count: lines.len(),
+        })
+    })
+}
+
+fn chrono_like_now() -> String {
+    // Avoid adding chrono crate — RFC3339-ish via SystemTime
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    format!("unix_secs={secs}")
 }
 
 #[cfg(test)]
@@ -237,5 +375,15 @@ mod tests {
         let lines = tail_lines(&path, 3).unwrap();
         assert_eq!(lines, vec!["line-17", "line-18", "line-19"]);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn redact_paths_masks_userprofile() {
+        std::env::set_var("USERPROFILE", r"C:\Users\example");
+        let raw = r"database path = C:\Users\example\AppData\kwikbooks.sqlite";
+        let out = redact_paths(raw);
+        assert!(out.contains("<REDACTED_HOME>"));
+        assert!(!out.contains(r"C:\Users\example"));
+        std::env::remove_var("USERPROFILE");
     }
 }

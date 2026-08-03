@@ -21,6 +21,8 @@ import { VendorsPage } from "./pages/VendorsPage";
 import { WelcomePage } from "./pages/WelcomePage";
 import { ReceivePaymentPage } from "./pages/ReceivePaymentPage";
 import { PayBillPage } from "./pages/PayBillPage";
+import { WriteCheckPage } from "./pages/WriteCheckPage";
+import { CheckPrintPage } from "./pages/CheckPrintPage";
 import { UpdateDialog } from "./components/UpdateDialog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { LogViewerProvider } from "./context/LogViewerContext";
@@ -110,9 +112,9 @@ function DbGate({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <TauriGate>
-      <UpdateDialog />
-      <DbGate>
-        <ErrorBoundary>
+      <ErrorBoundary>
+        <UpdateDialog />
+        <DbGate>
           <LogViewerProvider>
             <Routes>
               <Route element={<AppLayout />}>
@@ -131,6 +133,11 @@ export default function App() {
                   element={<ReceivePaymentPage />}
                 />
                 <Route path="/payments/pay" element={<PayBillPage />} />
+                <Route path="/checks/write" element={<WriteCheckPage />} />
+                <Route
+                  path="/checks/print/:paymentId"
+                  element={<CheckPrintPage />}
+                />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
@@ -139,8 +146,8 @@ export default function App() {
               </Route>
             </Routes>
           </LogViewerProvider>
-        </ErrorBoundary>
-      </DbGate>
+        </DbGate>
+      </ErrorBoundary>
     </TauriGate>
   );
 }
