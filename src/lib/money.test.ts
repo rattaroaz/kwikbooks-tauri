@@ -127,9 +127,9 @@ describe("asSafeMinor", () => {
     expect(() => asSafeMinor(Number.MAX_SAFE_INTEGER + 1)).toThrow(
       /safe integer/i,
     );
-    expect(() =>
-      asSafeMinor(BigInt(Number.MAX_SAFE_INTEGER) + 1n),
-    ).toThrow(/safe integer/i);
+    expect(() => asSafeMinor(BigInt(Number.MAX_SAFE_INTEGER) + 1n)).toThrow(
+      /safe integer/i,
+    );
   });
 });
 
