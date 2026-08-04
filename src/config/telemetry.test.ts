@@ -27,9 +27,8 @@ describe("telemetry / offline diagnostics", () => {
     debugMock.mockReset();
     hostErrorMock.mockReset();
     vi.spyOn(console, "debug").mockImplementation(debugMock);
-    const { resetGlobalErrorHandlersForTests } = await import(
-      "../lib/diagnostics"
-    );
+    const { resetGlobalErrorHandlersForTests } =
+      await import("../lib/diagnostics");
     resetGlobalErrorHandlersForTests();
   });
 
@@ -38,7 +37,8 @@ describe("telemetry / offline diagnostics", () => {
   });
 
   it("diagnosticsEnabled reflects env.diagnostics", async () => {
-    const { diagnosticsEnabled, telemetryEnabled } = await import("./telemetry");
+    const { diagnosticsEnabled, telemetryEnabled } =
+      await import("./telemetry");
     envMock.diagnostics = false;
     expect(diagnosticsEnabled()).toBe(false);
     expect(telemetryEnabled()).toBe(false);

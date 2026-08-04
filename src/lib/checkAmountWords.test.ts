@@ -17,13 +17,13 @@ describe("amountMinorToWords", () => {
   });
 
   it("formats zero-decimal currencies without a fractional part", () => {
-    expect(amountMinorToWords(1234, "JPY")).toBe("One thousand two hundred thirty-four");
+    expect(amountMinorToWords(1234, "JPY")).toBe(
+      "One thousand two hundred thirty-four",
+    );
   });
 
   it("formats thousands", () => {
-    expect(amountMinorToWords(1_005_01)).toBe(
-      "One thousand five and 01/100",
-    );
+    expect(amountMinorToWords(1_005_01)).toBe("One thousand five and 01/100");
   });
 
   it("formats one trillion dollars", () => {

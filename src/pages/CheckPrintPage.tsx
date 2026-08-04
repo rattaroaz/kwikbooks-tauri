@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import * as api from "../api/tauri";
 import type { JsonObject } from "../api/tauri";
 import { CheckPrintLayout } from "../components/CheckPrintLayout";
@@ -41,7 +46,9 @@ export function CheckPrintPage() {
           setLayout(layoutFromStyle(styleParam));
         } else {
           setLayout(
-            layoutFromStyle(String((c as JsonObject).defaultCheckStyle ?? "voucher_top")),
+            layoutFromStyle(
+              String((c as JsonObject).defaultCheckStyle ?? "voucher_top"),
+            ),
           );
         }
       } catch (e) {

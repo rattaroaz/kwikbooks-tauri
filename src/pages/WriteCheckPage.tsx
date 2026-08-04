@@ -76,7 +76,9 @@ export function WriteCheckPage() {
         const c = company as JsonObject;
         setCurrency(String(c.baseCurrencyCode ?? "USD"));
         setCheckNumber(String(c.nextCheckNumber ?? "1000"));
-        const layout = layoutFromStyle(String(c.defaultCheckStyle ?? "voucher_top"));
+        const layout = layoutFromStyle(
+          String(c.defaultCheckStyle ?? "voucher_top"),
+        );
         setStockId(presetForLayout(layout).id);
         const qBill = searchParams.get("billId");
         if (qBill) {

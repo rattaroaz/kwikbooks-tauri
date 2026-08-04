@@ -130,7 +130,8 @@ export function CheckPrintLayout({ layout, data }: Props) {
       <div className="kb-check-stub kb-check-stub-a" aria-hidden="true">
         <div className="kb-check-stub-title">Voucher</div>
         <div>
-          {data.payeeName} · {formatMoneyMinor(data.amountMinor, data.currencyCode ?? "USD")}
+          {data.payeeName} ·{" "}
+          {formatMoneyMinor(data.amountMinor, data.currencyCode ?? "USD")}
         </div>
         <div>{data.memo?.trim() || ""}</div>
       </div>

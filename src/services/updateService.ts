@@ -39,10 +39,7 @@ function isUpdateFeedUnavailable(message: string): boolean {
 
 function isArm64PlatformMissing(message: string): boolean {
   const m = message.toLowerCase();
-  return (
-    m.includes("fallback platforms") &&
-    m.includes("windows-aarch64")
-  );
+  return m.includes("fallback platforms") && m.includes("windows-aarch64");
 }
 
 function errorMessage(err: unknown): string {

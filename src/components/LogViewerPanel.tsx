@@ -29,7 +29,8 @@ const POLL_MS = 3_000;
 const log = createScopedLogger("LogViewer");
 
 function formatLine({ source, line }: LogLine): string {
-  const tag = source === "webview" ? "webview" : source === "panic" ? "panic" : "app";
+  const tag =
+    source === "webview" ? "webview" : source === "panic" ? "panic" : "app";
   return `[${tag}] ${line}`;
 }
 

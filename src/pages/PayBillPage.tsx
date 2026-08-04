@@ -132,12 +132,8 @@ export function PayBillPage() {
         Records a vendor payment and posts it to the general ledger (AP debit,
         bank credit). Optional bill id applies the whole payment to one posted
         bill with a vendor assigned; use a separate payment per bill to split.
-        To print a paper check, use{" "}
-        <Link to="/checks/write">Write check</Link>
-        {billIdStr.trim()
-          ? ` with bill ${billIdStr.trim()}`
-          : ""}
-        .
+        To print a paper check, use <Link to="/checks/write">Write check</Link>
+        {billIdStr.trim() ? ` with bill ${billIdStr.trim()}` : ""}.
       </p>
       <p className="kb-muted">
         <Link

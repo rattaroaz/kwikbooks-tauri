@@ -162,7 +162,10 @@ export function SettingsPage() {
       !Number.isInteger(nextCheckNumber) ||
       nextCheckNumber < 1
     ) {
-      push("error", "Next invoice/bill/check numbers must be positive integers.");
+      push(
+        "error",
+        "Next invoice/bill/check numbers must be positive integers.",
+      );
       return;
     }
     try {

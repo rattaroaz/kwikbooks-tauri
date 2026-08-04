@@ -8,9 +8,13 @@ use crate::domain::ids::{
 use crate::domain::journal::{insert_journal, DraftJournalLine};
 use crate::domain::money::line_total_minor;
 
-#[allow(clippy::type_complexity)]
+type InvoicePostRow = (String, Option<i64>, i64, i64, i64, i64, String);
+type BillPostRow = (String, Option<i64>, i64, String, Option<i64>);
+type CustomerPaymentPostRow = (Option<i64>, i64, i64, i64, String, Option<i64>);
+type VendorPaymentPostRow = (Option<i64>, i64, i64, String, i64, Option<i64>);
+
 pub fn post_invoice(conn: &mut Connection, invoice_id: i64) -> Result<i64, DbCommandError> {
-    let row: Option<(String, Option<i64>, i64, i64, i64, i64, String)> = conn
+    let row: Option<InvoicePostRow> = conn
         .query_row(
             r#"SELECT status, journal_id, customer_id, subtotal_minor, tax_minor, total_minor, issue_date
                FROM invoice WHERE id = ?1 AND company_id = ?2"#,
@@ -497,7 +501,7 @@ mod integration_tests {
 }
 
 pub fn post_bill(conn: &mut Connection, bill_id: i64) -> Result<i64, DbCommandError> {
-    let row: Option<(String, Option<i64>, i64, String, Option<i64>)> = conn
+    let row: Option<BillPostRow> = conn
         .query_row(
             r#"SELECT status, journal_id, total_minor, issue_date, vendor_id
                FROM bill WHERE id = ?1 AND company_id = ?2"#,
@@ -666,7 +670,7 @@ pub fn post_customer_payment(
     conn: &mut Connection,
     payment_id: i64,
 ) -> Result<i64, DbCommandError> {
-    let row: Option<(Option<i64>, i64, i64, i64, String, Option<i64>)> = conn
+    let row: Option<CustomerPaymentPostRow> = conn
         .query_row(
             r#"SELECT journal_id, bank_account_id, amount_minor, customer_id, payment_date, invoice_id
                FROM customer_payment WHERE id = ?1 AND company_id = ?2"#,
@@ -751,7 +755,7 @@ pub fn post_customer_payment(
 }
 
 pub fn post_vendor_payment(conn: &mut Connection, payment_id: i64) -> Result<i64, DbCommandError> {
-    let row: Option<(Option<i64>, i64, i64, String, i64, Option<i64>)> = conn
+    let row: Option<VendorPaymentPostRow> = conn
         .query_row(
             r#"SELECT journal_id, bank_account_id, amount_minor, payment_date, vendor_id, bill_id
                FROM vendor_payment WHERE id = ?1 AND company_id = ?2"#,

@@ -31,12 +31,12 @@ Do **not** use `npm run dev` alone for real work — that is Vite only; IPC and 
 
 Copy [`.env.example`](.env.example) to `.env` or `.env.local` for Vite overrides.
 
-| Variable                   | Default   | Meaning                                      |
-| -------------------------- | --------- | -------------------------------------------- |
-| `VITE_VERBOSE_IPC`         | on in dev | Log each IPC call (redacted args)            |
-| `VITE_LOG_CONSOLE_FORWARD` | on in dev | Forward `console.*` to host logs             |
-| `VITE_SLOW_IPC_MS`         | `1500`    | Warn when IPC exceeds this (ms)              |
-| `VITE_DIAGNOSTICS`         | on in DEV | Attach breadcrumbs/meta to local captures    |
+| Variable                   | Default   | Meaning                                   |
+| -------------------------- | --------- | ----------------------------------------- |
+| `VITE_VERBOSE_IPC`         | on in dev | Log each IPC call (redacted args)         |
+| `VITE_LOG_CONSOLE_FORWARD` | on in dev | Forward `console.*` to host logs          |
+| `VITE_SLOW_IPC_MS`         | `1500`    | Warn when IPC exceeds this (ms)           |
+| `VITE_DIAGNOSTICS`         | on in DEV | Attach breadcrumbs/meta to local captures |
 
 `VITE_TELEMETRY` is accepted as a legacy alias for `VITE_DIAGNOSTICS`. Observability is **offline-only** — exceptions and logs never leave the machine.
 

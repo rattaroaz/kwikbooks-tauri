@@ -60,5 +60,7 @@ export function presetForLayout(layout: CheckLayout): CheckStockPreset {
 }
 
 export function presetById(id: string): CheckStockPreset {
-  return CHECK_STOCK_PRESETS.find((p) => p.id === id) ?? CHECK_STOCK_PRESETS[1]!;
+  return (
+    CHECK_STOCK_PRESETS.find((p) => p.id === id) ?? CHECK_STOCK_PRESETS[1]!
+  );
 }
