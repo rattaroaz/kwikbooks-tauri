@@ -32,6 +32,17 @@ describe("amountMinorToWords", () => {
     );
   });
 
+  it("formats millions and billions", () => {
+    expect(amountMinorToWords(2_000_000_00)).toBe("Two million and 00/100");
+    expect(amountMinorToWords(3_000_000_000_00)).toBe(
+      "Three billion and 00/100",
+    );
+  });
+
+  it("formats exact hundreds without a remainder", () => {
+    expect(amountMinorToWords(200_00)).toBe("Two hundred and 00/100");
+  });
+
   it("rejects negative", () => {
     expect(() => amountMinorToWords(-1)).toThrow(/non-negative/i);
   });

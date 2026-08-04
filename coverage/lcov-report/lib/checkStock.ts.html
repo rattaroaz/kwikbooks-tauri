@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for config/env.ts</title>
+    <title>Code coverage report for lib/checkStock.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../prettify.css" />
     <link rel="stylesheet" href="../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../index.html">All files</a> / <a href="index.html">config</a> env.ts</h1>
+        <h1><a href="../index.html">All files</a> / <a href="index.html">lib</a> checkStock.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>9/9</span>
+                <span class='fraction'>8/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">90% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>18/18</span>
+                <span class='fraction'>9/10</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>2/2</span>
+                <span class='fraction'>5/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>7/7</span>
+                <span class='fraction'>8/8</span>
             </div>
         
             
@@ -111,33 +111,25 @@
 <a name='L46'></a><a href='#L46'>46</a>
 <a name='L47'></a><a href='#L47'>47</a>
 <a name='L48'></a><a href='#L48'>48</a>
-<a name='L49'></a><a href='#L49'>49</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">57x</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-yes">13x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -152,6 +144,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -159,54 +152,115 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">function parseBool(value: string | undefined, defaultValue: boolean): boolean {
-  if (value === undefined || value === "") return defaultValue;
-  const v = value.toLowerCase();
-  return v === "1" || v === "true" || v === "yes" || v === "on";
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/** Check stock presets: brand labels map to voucher band positions on US Letter. */
+&nbsp;
+export type CheckLayout =
+  | "voucher_top"
+  | "voucher_middle"
+  | "voucher_bottom"
+  | "generic";
+&nbsp;
+export type CheckStockPreset = {
+  id: string;
+  label: string;
+  layout: CheckLayout;
+  help: string;
+};
+&nbsp;
+export const CHECK_STOCK_PRESETS: readonly CheckStockPreset[] = [
+  {
+    id: "generic",
+    label: "Generic (alignment guides)",
+    layout: "generic",
+    help: "Dashed field boxes for aligning any blank stock. MICR stays pre-printed.",
+  },
+  {
+    id: "deluxe_qb_top",
+    label: "Deluxe / QuickBooks-compatible (check on top)",
+    layout: "voucher_top",
+    help: "Standard business voucher: check band at the top of the page.",
+  },
+  {
+    id: "checks_unlimited_middle",
+    label: "Checks Unlimited / middle voucher",
+    layout: "voucher_middle",
+    help: "Voucher stock with the check band in the middle of the page.",
+  },
+  {
+    id: "bottom_quicken",
+    label: "Bottom voucher / Quicken-style",
+    layout: "voucher_bottom",
+    help: "Voucher stock with the check band at the bottom of the page.",
+  },
+] as const;
+&nbsp;
+export function layoutFromStyle(style: string): CheckLayout {
+  if (
+    style === "voucher_top" ||
+    style === "voucher_middle" ||
+    style === "voucher_bottom" ||
+    style === "generic"
+  ) {
+    return style;
+  }
+  return "voucher_top";
 }
 &nbsp;
-/** @internal Exported for unit tests. */
-export function parsePositiveMs(
-  value: string | undefined,
-  defaultMs: number,
-): number {
-  if (value === undefined || value === "") return defaultMs;
-  const n = Number(String(value).trim());
-  return Number.isFinite(n) &amp;&amp; n &gt; 0 ? Math.floor(n) : defaultMs;
+export function presetForLayout(layout: CheckLayout): CheckStockPreset {
+  return (
+    CHECK_STOCK_PRESETS.find((p) =&gt; p.layout === layout) ??
+<span class="branch-1 cbranch-no" title="branch not covered" >    CHECK_STOCK_PRESETS[1]!</span>
+  );
 }
 &nbsp;
-/** Vite/Tauri frontend environment (import.meta.env). */
-export const env = {
-  isDev: import.meta.env.DEV,
-  isProd: import.meta.env.PROD,
-  mode: import.meta.env.MODE,
-  /**
-   * Verbose **local** diagnostics on exception capture (breadcrumbs + app meta).
-   * Offline-only — never sends data remotely. Default: on in DEV.
-   * Accepts `VITE_DIAGNOSTICS` or legacy `VITE_TELEMETRY`.
-   */
-  diagnostics: parseBool(
-    import.meta.env.VITE_DIAGNOSTICS ?? import.meta.env.VITE_TELEMETRY,
-    import.meta.env.DEV,
-  ),
-  /**
-   * Log each IPC call timing/detail via `@tauri-apps/plugin-log` (default: on in dev, off in prod).
-   */
-  verboseIpc: parseBool(import.meta.env.VITE_VERBOSE_IPC, import.meta.env.DEV),
-  /**
-   * Forward browser `console.*` to the host log pipeline (default: on in dev, off in prod).
-   * Disable in release builds to avoid leaking arbitrary console payloads into log files.
-   */
-  forwardConsoleToHost: parseBool(
-    import.meta.env.VITE_LOG_CONSOLE_FORWARD,
-    import.meta.env.DEV,
-  ),
-  /**
-   * Warn when an IPC round-trip exceeds this many ms (default **1500**). Mirrors `KWIKBOOKS_SLOW_MS` on the host.
-   */
-  slowIpcMs: parsePositiveMs(import.meta.env.VITE_SLOW_IPC_MS, 1500),
-  parseBool,
-} as const;
+export function presetById(id: string): CheckStockPreset {
+  return (
+    CHECK_STOCK_PRESETS.find((p) =&gt; p.id === id) ?? CHECK_STOCK_PRESETS[1]!
+  );
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->

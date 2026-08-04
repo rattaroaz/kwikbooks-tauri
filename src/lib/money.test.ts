@@ -2,6 +2,8 @@ import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   asSafeMinor,
+  currencyFractionDigits,
+  currencyMajorLabel,
   formatMoneyMinor,
   lineTotalMinor,
   parseMinorInt,
@@ -64,11 +66,70 @@ describe("lineTotalMinor", () => {
     expect(lineTotalMinor(0.1, 33)).toBe(3);
     expect(lineTotalMinor(1.5, 100)).toBe(150);
   });
+
+  it("returns 0 for non-finite inputs and non-positive totals", () => {
+    expect(lineTotalMinor(Number.NaN, 100)).toBe(0);
+    expect(lineTotalMinor(1, Number.POSITIVE_INFINITY)).toBe(0);
+    expect(lineTotalMinor(0, 100)).toBe(0);
+    expect(lineTotalMinor(-2, 100)).toBe(0);
+    expect(lineTotalMinor(1, -50)).toBe(0);
+  });
+
+  it("clamps overflow to MAX_SAFE_INTEGER", () => {
+    expect(lineTotalMinor(2, Number.MAX_SAFE_INTEGER)).toBe(
+      Number.MAX_SAFE_INTEGER,
+    );
+  });
+});
+
+describe("currencyFractionDigits", () => {
+  it("returns ISO fraction digits", () => {
+    expect(currencyFractionDigits("USD", "en-US")).toBe(2);
+    expect(currencyFractionDigits("JPY", "en-US")).toBe(0);
+  });
+
+  it("falls back to 2 for invalid currency codes", () => {
+    expect(currencyFractionDigits("NOTACURRENCY", "en-US")).toBe(2);
+  });
+});
+
+describe("currencyMajorLabel", () => {
+  it("labels USD as Dollars", () => {
+    expect(currencyMajorLabel("usd", "en-US")).toBe("Dollars");
+  });
+
+  it("defaults blank codes to USD label", () => {
+    expect(currencyMajorLabel("   ", "en-US")).toBe("Dollars");
+  });
+
+  it("uses DisplayNames for other currencies", () => {
+    expect(currencyMajorLabel("EUR", "en-US").toLowerCase()).toMatch(/euro/);
+  });
+
+  it("falls back to the code when DisplayNames fails", () => {
+    expect(currencyMajorLabel("ZZZ", "en-US")).toBe("ZZZ");
+  });
 });
 
 describe("asSafeMinor", () => {
   it("accepts safe integers", () => {
     expect(asSafeMinor(42)).toBe(42);
+  });
+
+  it("accepts safe bigints and numeric strings", () => {
+    expect(asSafeMinor(42n)).toBe(42);
+    expect(asSafeMinor("-7")).toBe(-7);
+  });
+
+  it("rejects non-integers and unsafe ranges", () => {
+    expect(() => asSafeMinor(1.5)).toThrow(/integer of minor units/i);
+    expect(() => asSafeMinor("abc")).toThrow(/integer of minor units/i);
+    expect(() => asSafeMinor(Number.MAX_SAFE_INTEGER + 1)).toThrow(
+      /safe integer/i,
+    );
+    expect(() =>
+      asSafeMinor(BigInt(Number.MAX_SAFE_INTEGER) + 1n),
+    ).toThrow(/safe integer/i);
   });
 });
 
