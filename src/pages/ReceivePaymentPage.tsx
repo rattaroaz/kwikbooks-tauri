@@ -27,6 +27,7 @@ export function ReceivePaymentPage() {
   const [amountStr, setAmountStr] = useState("");
   const [invoiceIdStr, setInvoiceIdStr] = useState("");
   const [memo, setMemo] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -53,6 +54,9 @@ export function ReceivePaymentPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (submitting) {
+      return;
+    }
     const dateErr = requireValidISODate("Payment date", paymentDate);
     if (dateErr) {
       push("error", dateErr);
@@ -70,11 +74,15 @@ export function ReceivePaymentPage() {
       }
       const invoiceId =
         invoiceIdStr.trim() === "" ? undefined : Number(invoiceIdStr);
-      if (invoiceId !== undefined && !Number.isFinite(invoiceId)) {
-        push("error", "Invoice id must be a number.");
+      if (
+        invoiceId !== undefined &&
+        (!Number.isInteger(invoiceId) || invoiceId <= 0)
+      ) {
+        push("error", "Invoice id must be a positive whole number.");
         return;
       }
-      const paymentId = await api.customerPaymentCreate({
+      setSubmitting(true);
+      await api.customerPaymentCreate({
         customerId,
         bankAccountId,
         paymentDate: paymentDate.trim(),
@@ -82,13 +90,14 @@ export function ReceivePaymentPage() {
         memo: memo.trim() || undefined,
         invoiceId,
       });
-      await api.customerPaymentPost(paymentId);
       push("success", "Customer payment recorded and posted");
       setAmountStr("");
       setInvoiceIdStr("");
       setMemo("");
     } catch (err) {
       pushApiError(err, logContext(PAGE, "submit"));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -97,7 +106,8 @@ export function ReceivePaymentPage() {
       <h1>Receive payment</h1>
       <p className="kb-muted">
         Records a customer payment and posts it to the general ledger (bank
-        debit, AR credit).
+        debit, AR credit). Applying to an invoice reduces that invoice's open
+        balance and marks it paid when fully covered.
       </p>
       {banks.length === 0 && (
         <p className="kb-error-text">
@@ -165,7 +175,7 @@ export function ReceivePaymentPage() {
         <button
           type="submit"
           data-testid="receive-payment-submit"
-          disabled={banks.length === 0}
+          disabled={banks.length === 0 || submitting}
         >
           Record &amp; post
         </button>

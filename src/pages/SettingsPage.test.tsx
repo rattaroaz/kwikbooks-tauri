@@ -124,6 +124,20 @@ describe("SettingsPage", () => {
     expect(openLogsMock).toHaveBeenCalled();
   });
 
+  it("does not save an invalid fiscal month", async () => {
+    renderWithApp(<SettingsPage />);
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Company name/i)).toHaveValue("Acme Books"),
+    );
+
+    fireEvent.change(screen.getByLabelText(/^Fiscal year/i), {
+      target: { value: "13" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(api.companyUpdate).not.toHaveBeenCalled();
+  });
+
   it("imports QuickBooks export when a file is selected", async () => {
     vi.mocked(open).mockResolvedValue("/exports/accounts.iif");
     vi.mocked(api.importQuickbooksFile).mockResolvedValue({

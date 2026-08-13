@@ -269,8 +269,7 @@ fn map_csv_account_type(s: &str) -> (&'static str, bool) {
     let bank = u.contains("bank")
         || u.contains("checking")
         || u.contains("savings")
-        || u.contains("cash")
-        || u.contains("credit card");
+        || u.contains("cash");
     let kind = if u.contains("bank")
         || u.contains("accounts receivable")
         || u.contains("other current asset")
@@ -328,6 +327,16 @@ mod tests {
         assert_eq!(batch.accounts[0].code, "1000");
         assert!(batch.accounts[0].is_bank_cash);
         assert_eq!(batch.accounts[1].account_type, "expense");
+    }
+
+    #[test]
+    fn parse_credit_card_account_is_liability_not_bank_cash() {
+        let csv = "Account Number,Account Name,Account Type\n2100,Visa,Credit Card\n";
+        let (batch, skipped, _) = parse_csv(csv).unwrap();
+        assert_eq!(skipped, 0);
+        assert_eq!(batch.accounts.len(), 1);
+        assert_eq!(batch.accounts[0].account_type, "liability");
+        assert!(!batch.accounts[0].is_bank_cash);
     }
 
     #[test]

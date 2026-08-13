@@ -10,6 +10,9 @@ describe("parseMinorInt", () => {
 
   it("rejects fractions", () => {
     expect(() => parseMinorInt("10.5")).toThrow(/whole number/i);
+    expect(() => parseMinorInt("100.00")).toThrow(/whole number/i);
+    expect(() => parseMinorInt("1e2")).toThrow(/whole number/i);
+    expect(() => parseMinorInt("+$10")).toThrow(/whole number/i);
   });
 
   it("treats empty and hyphen as zero", () => {

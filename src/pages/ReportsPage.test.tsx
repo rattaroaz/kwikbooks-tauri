@@ -23,7 +23,7 @@ describe("ReportsPage", () => {
       netIncomeMinor: 0,
     });
     vi.mocked(api.reportArOpen).mockResolvedValue([
-      { customerName: "Acme Corp", openMinor: 5100 },
+      { displayName: "Acme Corp", openMinor: 5100 },
     ]);
     vi.mocked(api.accountList).mockResolvedValue([
       { id: 1, code: "1000", name: "Cash" },
@@ -43,11 +43,20 @@ describe("ReportsPage", () => {
     renderWithApp(<ReportsPage />);
     fireEvent.click(screen.getByRole("button", { name: "AR summary" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Load AR (sent invoices)" }),
+      screen.getByRole("button", { name: "Load AR (open balances)" }),
     );
     await waitFor(() => {
       expect(api.reportArOpen).toHaveBeenCalled();
       expect(screen.getByText("$51.00")).toBeDefined();
+    });
+  });
+
+  it("loads chart of accounts when the general ledger tab is opened", async () => {
+    renderWithApp(<ReportsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "General ledger" }));
+    await waitFor(() => {
+      expect(api.accountList).toHaveBeenCalled();
+      expect(screen.getByRole("option", { name: /1000/ })).toBeDefined();
     });
   });
 });

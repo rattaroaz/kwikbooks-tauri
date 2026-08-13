@@ -60,6 +60,10 @@ export function BillNewPage() {
       push("error", "No expense account available — check Chart of accounts.");
       return;
     }
+    if (vendorId === "" && !payeeName.trim()) {
+      push("error", "Select a vendor or enter a payee name.");
+      return;
+    }
     const dateErr = requireValidISODate("Issue date", issueDate);
     if (dateErr) {
       push("error", dateErr);
@@ -67,6 +71,10 @@ export function BillNewPage() {
     }
     try {
       const amountMinor = parseMinorInt(amountStr);
+      if (amountMinor <= 0) {
+        push("error", "Amount must be greater than zero.");
+        return;
+      }
       const id = await api.billCreate({
         vendorId: vendorId === "" ? undefined : vendorId,
         payeeName: payeeName.trim() || undefined,

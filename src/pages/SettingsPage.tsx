@@ -122,14 +122,30 @@ export function SettingsPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    const month = Number(fiscalMonth);
+    if (!Number.isInteger(month) || month < 1 || month > 12) {
+      push("error", "Fiscal year start month must be between 1 and 12.");
+      return;
+    }
+    const nextInvoiceNumber = Number(nextInv);
+    const nextBillNumber = Number(nextBill);
+    if (
+      !Number.isInteger(nextInvoiceNumber) ||
+      nextInvoiceNumber < 1 ||
+      !Number.isInteger(nextBillNumber) ||
+      nextBillNumber < 1
+    ) {
+      push("error", "Next invoice and bill numbers must be whole numbers ≥ 1.");
+      return;
+    }
     try {
       await api.companyUpdate({
         name: name.trim(),
         legalName: legalName.trim() || undefined,
-        fiscalYearStartMonth: Number(fiscalMonth),
+        fiscalYearStartMonth: month,
         baseCurrencyCode: currency.trim().toUpperCase(),
-        nextInvoiceNumber: Number(nextInv),
-        nextBillNumber: Number(nextBill),
+        nextInvoiceNumber,
+        nextBillNumber,
       });
       void log.info("company profile saved");
       push("success", "Company saved");

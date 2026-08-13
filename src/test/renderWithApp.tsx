@@ -5,24 +5,30 @@ import { ToastProvider } from "../context/ToastContext";
 
 type Options = RenderOptions & {
   route?: string;
+  /** Match path so `useParams` works (e.g. `/invoices/:id`). */
+  path?: string;
   withRoutes?: boolean;
 };
 
 export function renderWithApp(ui: ReactElement, options: Options = {}) {
-  const { route = "/", withRoutes = false, ...renderOptions } = options;
+  const { route = "/", path, withRoutes = false, ...renderOptions } = options;
 
   function Wrapper({ children }: { children: ReactNode }) {
+    const inner = path ? (
+      <Routes>
+        <Route path={path} element={children} />
+      </Routes>
+    ) : withRoutes ? (
+      <Routes>
+        <Route path="*" element={children} />
+      </Routes>
+    ) : (
+      children
+    );
+
     return (
       <MemoryRouter initialEntries={[route]}>
-        <ToastProvider>
-          {withRoutes ? (
-            <Routes>
-              <Route path="*" element={children} />
-            </Routes>
-          ) : (
-            children
-          )}
-        </ToastProvider>
+        <ToastProvider>{inner}</ToastProvider>
       </MemoryRouter>
     );
   }

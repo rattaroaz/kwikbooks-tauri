@@ -250,10 +250,14 @@ pub(crate) fn parse_money_minor(s: &str) -> Option<i64> {
     let parts: Vec<&str> = t.split('.').collect();
     let whole: i64 = parts.first()?.parse().ok()?;
     let frac = parts.get(1).copied().unwrap_or("0");
-    let frac_s: String = frac.chars().take(2).collect();
-    let frac_s = format!("{frac_s:0<2}");
-    let frac_n: i64 = frac_s.parse().ok()?;
-    let v = whole * 100 + frac_n;
+    let digits: String = frac.chars().filter(|c| c.is_ascii_digit()).collect();
+    let mut padded = format!("{digits:0<3}");
+    if padded.len() > 3 {
+        padded.truncate(3);
+    }
+    let thousandths: i64 = padded.parse().ok()?;
+    let cents = (thousandths + 5) / 10;
+    let v = whole.checked_mul(100)?.checked_add(cents)?;
     Some(if neg { -v } else { v })
 }
 
@@ -271,5 +275,14 @@ mod tests {
         assert!(b.accounts[0].is_bank_cash);
         assert_eq!(b.items.len(), 1);
         assert_eq!(b.items[0].unit_price_minor, 1250);
+    }
+
+    #[test]
+    fn parse_money_minor_rounds_half_up() {
+        assert_eq!(parse_money_minor("12.50"), Some(1250));
+        assert_eq!(parse_money_minor("12.999"), Some(1300));
+        assert_eq!(parse_money_minor("12.994"), Some(1299));
+        assert_eq!(parse_money_minor("$1,000.00"), Some(100_000));
+        assert_eq!(parse_money_minor("-2.5"), Some(-250));
     }
 }

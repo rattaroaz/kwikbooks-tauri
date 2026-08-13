@@ -1,16 +1,27 @@
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 
 use crate::db::DbCommandError;
+use crate::domain::constants::COMPANY_ID;
 
 pub fn set_invoice_status(
     conn: &Connection,
     id: i64,
     new_status: &str,
 ) -> Result<(), DbCommandError> {
-    let current: String =
-        conn.query_row("SELECT status FROM invoice WHERE id = ?1", [id], |row| {
-            row.get(0)
-        })?;
+    let row: Option<(String, Option<i64>, i64)> = conn
+        .query_row(
+            "SELECT status, journal_id, total_minor FROM invoice WHERE id = ?1 AND company_id = ?2",
+            rusqlite::params![id, COMPANY_ID],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .optional()?;
+
+    let Some((current, journal_id, total)) = row else {
+        return Err(DbCommandError::NotFound {
+            entity: "invoice".into(),
+            id,
+        });
+    };
 
     if matches!(current.as_str(), "paid" | "void") {
         return Err(DbCommandError::Conflict {
@@ -29,17 +40,48 @@ pub fn set_invoice_status(
         });
     }
 
+    if new_status == "void" && journal_id.is_some() {
+        return Err(DbCommandError::Validation {
+            message: "cannot void a posted invoice".into(),
+        });
+    }
+
+    if new_status == "paid" {
+        let applied: i64 = conn.query_row(
+            r#"SELECT COALESCE(SUM(amount_minor), 0) FROM customer_payment
+               WHERE invoice_id = ?1 AND company_id = ?2 AND journal_id IS NOT NULL"#,
+            rusqlite::params![id, COMPANY_ID],
+            |row| row.get(0),
+        )?;
+        if applied < total {
+            return Err(DbCommandError::Validation {
+                message: "cannot mark invoice paid until posted payments cover the total".into(),
+            });
+        }
+    }
+
     conn.execute(
-        "UPDATE invoice SET status = ?1, updated_at = datetime('now') WHERE id = ?2",
-        rusqlite::params![new_status, id],
+        "UPDATE invoice SET status = ?1, updated_at = datetime('now') WHERE id = ?2 AND company_id = ?3",
+        rusqlite::params![new_status, id, COMPANY_ID],
     )?;
     Ok(())
 }
 
 pub fn set_bill_status(conn: &Connection, id: i64, new_status: &str) -> Result<(), DbCommandError> {
-    let current: String = conn.query_row("SELECT status FROM bill WHERE id = ?1", [id], |row| {
-        row.get(0)
-    })?;
+    let row: Option<(String, Option<i64>, i64)> = conn
+        .query_row(
+            "SELECT status, journal_id, total_minor FROM bill WHERE id = ?1 AND company_id = ?2",
+            rusqlite::params![id, COMPANY_ID],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .optional()?;
+
+    let Some((current, journal_id, total)) = row else {
+        return Err(DbCommandError::NotFound {
+            entity: "bill".into(),
+            id,
+        });
+    };
 
     if matches!(current.as_str(), "paid" | "void") {
         return Err(DbCommandError::Conflict {
@@ -58,9 +100,29 @@ pub fn set_bill_status(conn: &Connection, id: i64, new_status: &str) -> Result<(
         });
     }
 
+    if new_status == "void" && journal_id.is_some() {
+        return Err(DbCommandError::Validation {
+            message: "cannot void a posted bill".into(),
+        });
+    }
+
+    if new_status == "paid" {
+        let applied: i64 = conn.query_row(
+            r#"SELECT COALESCE(SUM(amount_minor), 0) FROM vendor_payment
+               WHERE bill_id = ?1 AND company_id = ?2 AND journal_id IS NOT NULL"#,
+            rusqlite::params![id, COMPANY_ID],
+            |row| row.get(0),
+        )?;
+        if applied < total {
+            return Err(DbCommandError::Validation {
+                message: "cannot mark bill paid until posted payments cover the total".into(),
+            });
+        }
+    }
+
     conn.execute(
-        "UPDATE bill SET status = ?1, updated_at = datetime('now') WHERE id = ?2",
-        rusqlite::params![new_status, id],
+        "UPDATE bill SET status = ?1, updated_at = datetime('now') WHERE id = ?2 AND company_id = ?3",
+        rusqlite::params![new_status, id, COMPANY_ID],
     )?;
     Ok(())
 }
@@ -100,7 +162,7 @@ mod tests {
     }
 
     #[test]
-    fn invoice_status_allows_draft_to_sent_then_paid() {
+    fn invoice_status_allows_draft_to_sent() {
         let dir = tempdir().expect("tmp");
         let p = dir.path().join("lifecycle_invoice.sqlite");
         let mut conn = open_sqlite(&p).expect("open");
@@ -108,12 +170,13 @@ mod tests {
         let inv = seed_invoice(&conn, "draft", "LIF-1");
 
         set_invoice_status(&conn, inv, "sent").expect("draft->sent");
-        set_invoice_status(&conn, inv, "paid").expect("sent->paid");
+        let err = set_invoice_status(&conn, inv, "paid");
+        assert!(err.is_err(), "sent->paid without payment should be rejected");
 
         let status: String = conn
             .query_row("SELECT status FROM invoice WHERE id = ?1", [inv], |row| row.get(0))
             .expect("status");
-        assert_eq!(status, "paid");
+        assert_eq!(status, "sent");
     }
 
     #[test]
@@ -126,6 +189,29 @@ mod tests {
 
         let err = set_invoice_status(&conn, inv, "paid");
         assert!(err.is_err(), "draft->paid should be rejected");
+    }
+
+    #[test]
+    fn invoice_status_rejects_void_when_posted() {
+        let dir = tempdir().expect("tmp");
+        let p = dir.path().join("lifecycle_invoice_void.sqlite");
+        let mut conn = open_sqlite(&p).expect("open");
+        run_all_on_connection(&mut conn).expect("migrate");
+        let inv = seed_invoice(&conn, "sent", "LIF-3");
+        conn.execute(
+            "INSERT INTO journal (company_id, entry_date, source_kind, source_id) VALUES (1, '2026-01-01', 'invoice', ?1)",
+            [inv],
+        )
+        .expect("journal");
+        let jid = conn.last_insert_rowid();
+        conn.execute(
+            "UPDATE invoice SET journal_id = ?1 WHERE id = ?2",
+            rusqlite::params![jid, inv],
+        )
+        .expect("link");
+
+        let err = set_invoice_status(&conn, inv, "void");
+        assert!(err.is_err(), "posted invoice cannot be voided");
     }
 
     #[test]

@@ -3,20 +3,74 @@ use rusqlite::Connection;
 use crate::db::DbCommandError;
 use crate::domain::constants::COMPANY_ID;
 
+fn require_iso_date(label: &str, value: &str) -> Result<(), DbCommandError> {
+    let b = value.as_bytes();
+    let ok_shape = b.len() == 10
+        && b[4] == b'-'
+        && b[7] == b'-'
+        && b[0..4].iter().all(u8::is_ascii_digit)
+        && b[5..7].iter().all(u8::is_ascii_digit)
+        && b[8..10].iter().all(u8::is_ascii_digit);
+    if !ok_shape {
+        return Err(DbCommandError::Validation {
+            message: format!("{label} must be YYYY-MM-DD"),
+        });
+    }
+    let year: i32 = value[0..4].parse().unwrap_or(0);
+    let month: u32 = value[5..7].parse().unwrap_or(0);
+    let day: u32 = value[8..10].parse().unwrap_or(0);
+    if !(1..=12).contains(&month) || day == 0 || day > days_in_month(year, month) {
+        return Err(DbCommandError::Validation {
+            message: format!("{label} must be a real calendar date (YYYY-MM-DD)"),
+        });
+    }
+    Ok(())
+}
+
+fn days_in_month(year: i32, month: u32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+                29
+            } else {
+                28
+            }
+        }
+        _ => 0,
+    }
+}
+
+fn require_date_range(date_from: &str, date_to: &str) -> Result<(), DbCommandError> {
+    require_iso_date("date_from", date_from)?;
+    require_iso_date("date_to", date_to)?;
+    if date_from > date_to {
+        return Err(DbCommandError::Validation {
+            message: "date_from must be on or before date_to".into(),
+        });
+    }
+    Ok(())
+}
+
 pub fn trial_balance(
     conn: &Connection,
     date_from: &str,
     date_to: &str,
 ) -> Result<Vec<serde_json::Value>, DbCommandError> {
+    require_date_range(date_from, date_to)?;
     let mut stmt = conn.prepare(
         r#"SELECT a.id, a.code, a.name, a.account_type,
                   COALESCE(SUM(jl.debit_minor), 0) AS dr,
                   COALESCE(SUM(jl.credit_minor), 0) AS cr
            FROM account a
-           LEFT JOIN journal_line jl ON jl.account_id = a.id
-           LEFT JOIN journal j ON j.id = jl.journal_id
-             AND j.company_id = a.company_id
-             AND j.entry_date >= ?1 AND j.entry_date <= ?2
+           LEFT JOIN (
+             SELECT jl.account_id, jl.debit_minor, jl.credit_minor
+             FROM journal_line jl
+             INNER JOIN journal j ON j.id = jl.journal_id
+             WHERE j.company_id = ?3
+               AND j.entry_date >= ?1 AND j.entry_date <= ?2
+           ) jl ON jl.account_id = a.id
            WHERE a.company_id = ?3
            GROUP BY a.id
            ORDER BY a.sort_order, a.code"#,
@@ -49,6 +103,7 @@ pub fn general_ledger(
     date_from: &str,
     date_to: &str,
 ) -> Result<Vec<serde_json::Value>, DbCommandError> {
+    require_date_range(date_from, date_to)?;
     let mut stmt = conn.prepare(
         r#"SELECT j.entry_date, j.memo, jl.line_number, jl.description,
                   jl.debit_minor, jl.credit_minor, j.id AS journal_id, j.source_kind
@@ -82,17 +137,25 @@ pub fn general_ledger(
     Ok(out)
 }
 
-/// Open AR: invoices in `sent` status (unpaid recognition for MVP).
+/// Open AR: posted invoices minus posted customer payments (unapplied cash included).
 pub fn ar_open_by_customer(conn: &Connection) -> Result<Vec<serde_json::Value>, DbCommandError> {
     let mut stmt = conn.prepare(
         r#"SELECT c.id, c.display_name,
-                  COALESCE(SUM(i.total_minor), 0)
+                  COALESCE((
+                    SELECT SUM(i.total_minor) FROM invoice i
+                    WHERE i.customer_id = c.id AND i.company_id = c.company_id
+                      AND i.journal_id IS NOT NULL AND i.status != 'void'
+                  ), 0)
+                  -
+                  COALESCE((
+                    SELECT SUM(p.amount_minor) FROM customer_payment p
+                    WHERE p.customer_id = c.id AND p.company_id = c.company_id
+                      AND p.journal_id IS NOT NULL
+                  ), 0) AS open_minor
            FROM customer c
-           INNER JOIN invoice i ON i.customer_id = c.id
-             AND i.company_id = c.company_id
-             AND i.status = 'sent'
            WHERE c.company_id = ?1
            GROUP BY c.id
+           HAVING open_minor > 0
            ORDER BY c.display_name"#,
     )?;
 
@@ -111,17 +174,25 @@ pub fn ar_open_by_customer(conn: &Connection) -> Result<Vec<serde_json::Value>, 
     Ok(out)
 }
 
-/// Open AP: bills in `open` status.
+/// Open AP: posted bills minus posted vendor payments.
 pub fn ap_open_by_vendor(conn: &Connection) -> Result<Vec<serde_json::Value>, DbCommandError> {
     let mut stmt = conn.prepare(
         r#"SELECT v.id, v.display_name,
-                  COALESCE(SUM(b.total_minor), 0)
+                  COALESCE((
+                    SELECT SUM(b.total_minor) FROM bill b
+                    WHERE b.vendor_id = v.id AND b.company_id = v.company_id
+                      AND b.journal_id IS NOT NULL AND b.status != 'void'
+                  ), 0)
+                  -
+                  COALESCE((
+                    SELECT SUM(p.amount_minor) FROM vendor_payment p
+                    WHERE p.vendor_id = v.id AND p.company_id = v.company_id
+                      AND p.journal_id IS NOT NULL
+                  ), 0) AS open_minor
            FROM vendor v
-           INNER JOIN bill b ON b.vendor_id = v.id
-             AND b.company_id = v.company_id
-             AND b.status = 'open'
            WHERE v.company_id = ?1
            GROUP BY v.id
+           HAVING open_minor > 0
            ORDER BY v.display_name"#,
     )?;
 
@@ -146,6 +217,7 @@ pub fn profit_and_loss(
     date_from: &str,
     date_to: &str,
 ) -> Result<serde_json::Value, DbCommandError> {
+    require_date_range(date_from, date_to)?;
     let income_lines = pl_section(
         conn,
         date_from,
@@ -193,10 +265,13 @@ fn pl_section(
                   COALESCE(SUM(jl.debit_minor), 0),
                   COALESCE(SUM(jl.credit_minor), 0)
            FROM account a
-           LEFT JOIN journal_line jl ON jl.account_id = a.id
-           LEFT JOIN journal j ON j.id = jl.journal_id
-             AND j.company_id = a.company_id
-             AND j.entry_date >= ?1 AND j.entry_date <= ?2
+           LEFT JOIN (
+             SELECT jl.account_id, jl.debit_minor, jl.credit_minor
+             FROM journal_line jl
+             INNER JOIN journal j ON j.id = jl.journal_id
+             WHERE j.company_id = ?3
+               AND j.entry_date >= ?1 AND j.entry_date <= ?2
+           ) jl ON jl.account_id = a.id
            WHERE a.company_id = ?3 AND a.account_type = ?4
            GROUP BY a.id
            ORDER BY a.sort_order, a.code"#,
@@ -226,15 +301,19 @@ fn pl_section(
 
 /// Balance sheet balances as of date (inclusive): cumulative posting through `as_of_date`.
 pub fn balance_sheet(conn: &Connection, as_of_date: &str) -> Result<serde_json::Value, DbCommandError> {
+    require_iso_date("as_of_date", as_of_date)?;
     let mut stmt = conn.prepare(
         r#"SELECT a.id, a.code, a.name, a.account_type,
                   COALESCE(SUM(jl.debit_minor), 0),
                   COALESCE(SUM(jl.credit_minor), 0)
            FROM account a
-           LEFT JOIN journal_line jl ON jl.account_id = a.id
-           LEFT JOIN journal j ON j.id = jl.journal_id
-             AND j.company_id = a.company_id
-             AND j.entry_date <= ?1
+           LEFT JOIN (
+             SELECT jl.account_id, jl.debit_minor, jl.credit_minor
+             FROM journal_line jl
+             INNER JOIN journal j ON j.id = jl.journal_id
+             WHERE j.company_id = ?2
+               AND j.entry_date <= ?1
+           ) jl ON jl.account_id = a.id
            WHERE a.company_id = ?2 AND a.account_type IN ('asset', 'liability', 'equity')
            GROUP BY a.id
            ORDER BY a.account_type, a.sort_order, a.code"#,
@@ -289,6 +368,23 @@ pub fn balance_sheet(conn: &Connection, as_of_date: &str) -> Result<serde_json::
         }
     }
 
+    // Books are not closed; include undistributed P&L so Assets = Liabilities + Equity.
+    let pl = profit_and_loss(conn, "0001-01-01", as_of_date)?;
+    let net = pl
+        .get("netIncomeMinor")
+        .and_then(|x| x.as_i64())
+        .unwrap_or(0);
+    if net != 0 {
+        te = te.saturating_add(net);
+        equity.push(serde_json::json!({
+            "accountId": serde_json::Value::Null,
+            "code": "",
+            "name": "Net income",
+            "accountType": "equity",
+            "balanceMinor": net,
+        }));
+    }
+
     Ok(serde_json::json!({
         "asOfDate": as_of_date,
         "assets": assets,
@@ -321,6 +417,7 @@ mod tests {
             [customer_id],
         )
         .expect("invoice");
+        let invoice_id = conn.last_insert_rowid();
 
         conn.execute(
             "INSERT INTO vendor (company_id, display_name) VALUES (1, 'A Vendor')",
@@ -336,6 +433,7 @@ mod tests {
             [vendor_id],
         )
         .expect("bill");
+        let bill_id = conn.last_insert_rowid();
 
         // Journal #1: invoice posting effect (Dr AR 1000, Cr Sales 1000)
         conn.execute(
@@ -360,6 +458,11 @@ mod tests {
             rusqlite::params![j1, sales],
         )
         .expect("j1l2");
+        conn.execute(
+            "UPDATE invoice SET journal_id = ?1 WHERE id = ?2",
+            rusqlite::params![j1, invoice_id],
+        )
+        .expect("link invoice journal");
 
         // Journal #2: bill posting effect (Dr Expense 250, Cr AP 250)
         conn.execute(
@@ -384,6 +487,11 @@ mod tests {
             rusqlite::params![j2, ap],
         )
         .expect("j2l2");
+        conn.execute(
+            "UPDATE bill SET journal_id = ?1 WHERE id = ?2",
+            rusqlite::params![j2, bill_id],
+        )
+        .expect("link bill journal");
     }
 
     #[test]
@@ -418,7 +526,14 @@ mod tests {
         let bs = balance_sheet(&conn, "2026-01-31").expect("b/s");
         assert_eq!(bs["totalAssetsMinor"].as_i64(), Some(1000));
         assert_eq!(bs["totalLiabilitiesMinor"].as_i64(), Some(250));
-        assert_eq!(bs["totalEquityMinor"].as_i64(), Some(0));
+        assert_eq!(bs["totalEquityMinor"].as_i64(), Some(750));
+        assert_eq!(
+            bs["totalAssetsMinor"].as_i64(),
+            Some(
+                bs["totalLiabilitiesMinor"].as_i64().unwrap_or(0)
+                    + bs["totalEquityMinor"].as_i64().unwrap_or(0)
+            )
+        );
     }
 
     #[test]
@@ -494,5 +609,59 @@ mod tests {
         assert_eq!(ar["netMinor"].as_i64(), Some(1000));
         assert_eq!(sales["netMinor"].as_i64(), Some(-1000));
         assert_eq!(tb.len() >= 4, true, "expected at least the core accounts");
+    }
+
+    #[test]
+    fn trial_balance_excludes_activity_outside_date_range() {
+        let dir = tempdir().expect("tmp");
+        let p = dir.path().join("reports_tb_dates.sqlite");
+        let mut conn = open_sqlite(&p).expect("open");
+        run_all_on_connection(&mut conn).expect("migrate");
+        seed_ledger(&conn);
+
+        let cash: i64 = conn
+            .query_row(
+                "SELECT id FROM account WHERE company_id = 1 AND code = '1000'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("cash");
+        conn.execute(
+            "INSERT INTO journal (company_id, entry_date, memo, source_kind, source_id) VALUES (1, '2026-02-15', 'Later', 'manual', 99)",
+            [],
+        )
+        .expect("feb journal");
+        let j3 = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO journal_line (journal_id, account_id, line_number, description, debit_minor, credit_minor) VALUES (?1, ?2, 1, 'Cash in', 500, 0)",
+            rusqlite::params![j3, cash],
+        )
+        .expect("j3l1");
+        let equity: i64 = conn
+            .query_row(
+                "SELECT id FROM account WHERE company_id = 1 AND code = '3000'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("equity");
+        conn.execute(
+            "INSERT INTO journal_line (journal_id, account_id, line_number, description, debit_minor, credit_minor) VALUES (?1, ?2, 2, 'Equity', 0, 500)",
+            rusqlite::params![j3, equity],
+        )
+        .expect("j3l2");
+
+        let jan = trial_balance(&conn, "2026-01-01", "2026-01-31").expect("jan tb");
+        let cash_jan = jan
+            .iter()
+            .find(|r| r["code"].as_str() == Some("1000"))
+            .expect("cash jan");
+        assert_eq!(cash_jan["debitMinor"].as_i64(), Some(0));
+
+        let feb = trial_balance(&conn, "2026-02-01", "2026-02-28").expect("feb tb");
+        let cash_feb = feb
+            .iter()
+            .find(|r| r["code"].as_str() == Some("1000"))
+            .expect("cash feb");
+        assert_eq!(cash_feb["debitMinor"].as_i64(), Some(500));
     }
 }

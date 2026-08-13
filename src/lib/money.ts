@@ -8,6 +8,9 @@ export function parseMinorInt(raw: string): number {
   if (t === "" || t === "-") {
     return 0;
   }
+  if (!/^-?\d+$/.test(t)) {
+    throw new Error("Enter a whole number of minor units (e.g. cents).");
+  }
   const n = Number(t);
   if (!Number.isFinite(n) || !Number.isInteger(n)) {
     throw new Error("Enter a whole number of minor units (e.g. cents).");

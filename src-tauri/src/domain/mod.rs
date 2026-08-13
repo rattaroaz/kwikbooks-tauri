@@ -10,3 +10,6 @@ pub mod lists;
 pub mod posting;
 pub mod reports;
 pub mod search;
+
+#[cfg(test)]
+mod invariants;

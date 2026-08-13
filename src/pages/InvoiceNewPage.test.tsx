@@ -103,4 +103,21 @@ describe("InvoiceNewPage", () => {
     expect(api.invoiceCreate).not.toHaveBeenCalled();
     expect(navigateMock).not.toHaveBeenCalled();
   });
+
+  it("rejects negative tax or unit price", async () => {
+    renderWithApp(<InvoiceNewPage />);
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: "Acme Corp" })).toBeDefined(),
+    );
+
+    fireEvent.change(screen.getByLabelText(/^Invoice #/i), {
+      target: { value: "INV-3" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Tax/i), {
+      target: { value: "-10" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+    expect(api.invoiceCreate).not.toHaveBeenCalled();
+  });
 });

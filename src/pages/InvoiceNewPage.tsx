@@ -54,6 +54,10 @@ export function InvoiceNewPage() {
     try {
       const taxMinor = parseMinorInt(taxMinorStr);
       const unitPriceMinor = parseMinorInt(unitMinorStr);
+      if (taxMinor < 0 || unitPriceMinor < 0) {
+        push("error", "Amounts cannot be negative.");
+        return;
+      }
       const quantity = Number(qty);
       if (!Number.isFinite(quantity) || quantity <= 0) {
         push("error", "Invalid quantity");

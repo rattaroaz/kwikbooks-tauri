@@ -27,6 +27,7 @@ export function PayBillPage() {
   const [amountStr, setAmountStr] = useState("");
   const [billIdStr, setBillIdStr] = useState("");
   const [memo, setMemo] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -53,6 +54,9 @@ export function PayBillPage() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (submitting) {
+      return;
+    }
     const dateErr = requireValidISODate("Payment date", paymentDate);
     if (dateErr) {
       push("error", dateErr);
@@ -69,11 +73,12 @@ export function PayBillPage() {
         return;
       }
       const billId = billIdStr.trim() === "" ? undefined : Number(billIdStr);
-      if (billId !== undefined && !Number.isFinite(billId)) {
-        push("error", "Bill id must be a number.");
+      if (billId !== undefined && (!Number.isInteger(billId) || billId <= 0)) {
+        push("error", "Bill id must be a positive whole number.");
         return;
       }
-      const paymentId = await api.vendorPaymentCreate({
+      setSubmitting(true);
+      await api.vendorPaymentCreate({
         vendorId,
         bankAccountId,
         paymentDate: paymentDate.trim(),
@@ -81,13 +86,14 @@ export function PayBillPage() {
         memo: memo.trim() || undefined,
         billId,
       });
-      await api.vendorPaymentPost(paymentId);
       push("success", "Vendor payment recorded and posted");
       setAmountStr("");
       setBillIdStr("");
       setMemo("");
     } catch (err) {
       pushApiError(err, logContext(PAGE, "submit"));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -96,7 +102,8 @@ export function PayBillPage() {
       <h1>Pay vendor</h1>
       <p className="kb-muted">
         Records a vendor payment and posts it to the general ledger (AP debit,
-        bank credit).
+        bank credit). Applying to a bill reduces that bill's open balance and
+        marks it paid when fully covered.
       </p>
       {banks.length === 0 && (
         <p className="kb-error-text">
@@ -164,7 +171,7 @@ export function PayBillPage() {
         <button
           type="submit"
           data-testid="pay-bill-submit"
-          disabled={banks.length === 0}
+          disabled={banks.length === 0 || submitting}
         >
           Record &amp; post
         </button>

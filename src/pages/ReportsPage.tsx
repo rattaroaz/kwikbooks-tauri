@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as api from "../api/tauri";
 import type { JsonObject } from "../api/tauri";
 import { downloadTextFile, rowsToCsv } from "../lib/csv";
@@ -6,6 +6,10 @@ import { todayISODate } from "../lib/dates";
 import { formatMoneyMinor, sumMinor } from "../lib/money";
 import { logContext } from "../lib/logContext";
 import { useToast } from "../context/ToastContext";
+import {
+  requireValidISODate,
+  requireValidISODateRange,
+} from "../lib/validateDate";
 
 type Tab = "pl" | "bs" | "tb" | "ar" | "ap" | "gl";
 
@@ -28,7 +32,31 @@ export function ReportsPage() {
   const [glAccounts, setGlAccounts] = useState<AccountOption[]>([]);
   const [gl, setGl] = useState<unknown[] | null>(null);
 
+  useEffect(() => {
+    if (tab !== "gl") {
+      return;
+    }
+    void (async () => {
+      try {
+        const rows = (await api.accountList({
+          activeOnly: true,
+        })) as AccountOption[];
+        setGlAccounts(rows);
+        setGlAccountId((current) =>
+          current === 0 && rows[0] ? rows[0].id : current,
+        );
+      } catch (e) {
+        pushApiError(e, logContext(PAGE, "loadGlAccounts"));
+      }
+    })();
+  }, [tab, pushApiError]);
+
   async function loadPl() {
+    const dateErr = requireValidISODateRange("From", from, "To", to);
+    if (dateErr) {
+      push("error", dateErr);
+      return;
+    }
     try {
       const r = await api.reportProfitLoss(from, to);
       setPl(r);
@@ -39,6 +67,11 @@ export function ReportsPage() {
   }
 
   async function loadBs() {
+    const dateErr = requireValidISODate("As of", asOf);
+    if (dateErr) {
+      push("error", dateErr);
+      return;
+    }
     try {
       const r = await api.reportBalanceSheet(asOf);
       setBs(r);
@@ -49,6 +82,11 @@ export function ReportsPage() {
   }
 
   async function loadTb() {
+    const dateErr = requireValidISODateRange("From", from, "To", to);
+    if (dateErr) {
+      push("error", dateErr);
+      return;
+    }
     try {
       const r = await api.reportTrialBalance(from, to);
       setTb(r);
@@ -78,21 +116,12 @@ export function ReportsPage() {
     }
   }
 
-  async function loadGlAccounts() {
-    try {
-      const rows = (await api.accountList({
-        activeOnly: true,
-      })) as AccountOption[];
-      setGlAccounts(rows);
-      if (rows[0] && glAccountId === 0) {
-        setGlAccountId(rows[0].id);
-      }
-    } catch (e) {
-      pushApiError(e, logContext(PAGE, "loadGlAccounts"));
-    }
-  }
-
   async function loadGl() {
+    const dateErr = requireValidISODateRange("From", from, "To", to);
+    if (dateErr) {
+      push("error", dateErr);
+      return;
+    }
     if (glAccountId === 0) {
       push("error", "Select an account for the general ledger.");
       return;
@@ -236,11 +265,19 @@ export function ReportsPage() {
           <div className="kb-row">
             <label>
               From
-              <input value={from} onChange={(e) => setFrom(e.target.value)} />
+              <input
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+              />
             </label>
             <label>
               To
-              <input value={to} onChange={(e) => setTo(e.target.value)} />
+              <input
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+              />
             </label>
             <button
               type="button"
@@ -293,7 +330,11 @@ export function ReportsPage() {
           <div className="kb-row">
             <label>
               As of
-              <input value={asOf} onChange={(e) => setAsOf(e.target.value)} />
+              <input
+                type="date"
+                value={asOf}
+                onChange={(e) => setAsOf(e.target.value)}
+              />
             </label>
             <button type="button" onClick={() => void loadBs()}>
               Run
@@ -330,11 +371,19 @@ export function ReportsPage() {
           <div className="kb-row">
             <label>
               From
-              <input value={from} onChange={(e) => setFrom(e.target.value)} />
+              <input
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+              />
             </label>
             <label>
               To
-              <input value={to} onChange={(e) => setTo(e.target.value)} />
+              <input
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+              />
             </label>
             <button type="button" onClick={() => void loadTb()}>
               Run
@@ -386,7 +435,7 @@ export function ReportsPage() {
       {tab === "ar" && (
         <section className="kb-report">
           <button type="button" onClick={() => void loadAr()}>
-            Load AR (sent invoices)
+            Load AR (open balances)
           </button>
           <button type="button" onClick={csvAr} disabled={!ar}>
             Export CSV
@@ -448,7 +497,6 @@ export function ReportsPage() {
               Account
               <select
                 value={glAccountId || ""}
-                onFocus={() => void loadGlAccounts()}
                 onChange={(e) => setGlAccountId(Number(e.target.value))}
               >
                 {glAccounts.map((a) => (
@@ -460,11 +508,19 @@ export function ReportsPage() {
             </label>
             <label>
               From
-              <input value={from} onChange={(e) => setFrom(e.target.value)} />
+              <input
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+              />
             </label>
             <label>
               To
-              <input value={to} onChange={(e) => setTo(e.target.value)} />
+              <input
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+              />
             </label>
             <button type="button" onClick={() => void loadGl()}>
               Run

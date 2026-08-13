@@ -94,9 +94,19 @@ fn company_update_impl(
     let name = input.name.unwrap_or(c_name);
     let legal_name = input.legal_name.or(c_legal);
     let fiscal = input.fiscal_year_start_month.unwrap_or(c_fiscal);
+    if !(1..=12).contains(&fiscal) {
+        return Err(DbCommandError::Validation {
+            message: "fiscal year start month must be between 1 and 12".into(),
+        });
+    }
     let curr = input.base_currency_code.unwrap_or(c_curr);
     let next_inv = input.next_invoice_number.unwrap_or(c_inv);
     let next_bill = input.next_bill_number.unwrap_or(c_bill);
+    if next_inv < 1 || next_bill < 1 {
+        return Err(DbCommandError::Validation {
+            message: "next invoice and bill numbers must be at least 1".into(),
+        });
+    }
 
     conn.execute(
         r#"UPDATE company SET
@@ -189,5 +199,28 @@ mod tests {
         assert_eq!(parsed.name.as_deref(), Some("Renamed Co"));
         assert_eq!(parsed.fiscal_year_start_month, Some(7));
         assert_eq!(parsed.next_bill_number, Some(600));
+    }
+
+    #[test]
+    fn company_update_impl_rejects_invalid_fiscal_month() {
+        let (_dir, db_path) = test_db();
+        let err = company_update_impl(
+            &db_path,
+            CompanyUpdateInput {
+                name: None,
+                legal_name: None,
+                fiscal_year_start_month: Some(13),
+                base_currency_code: None,
+                next_invoice_number: None,
+                next_bill_number: None,
+            },
+        )
+        .expect_err("must fail");
+        match err {
+            DbCommandError::Validation { message } => {
+                assert!(message.contains("fiscal year"));
+            }
+            other => panic!("expected validation, got {other:?}"),
+        }
     }
 }

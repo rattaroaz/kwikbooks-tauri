@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import * as api from "../api/tauri";
 import type { JsonObject } from "../api/tauri";
@@ -18,15 +18,31 @@ export function BillDetailPage() {
   const billId = Number(id);
   const { push, pushApiError } = useToast();
   const [data, setData] = useState<BillDetailData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadSeq = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
+    setData(null);
+    setLoadError(null);
+    if (!Number.isInteger(billId) || billId <= 0) {
+      setLoadError("Invalid bill id.");
+      return;
+    }
     try {
       const d = await api.getBill(billId);
+      if (seq !== loadSeq.current) {
+        return;
+      }
       setData({
         header: d.header,
         lines: d.lines as JsonObject[],
       });
     } catch (e) {
+      if (seq !== loadSeq.current) {
+        return;
+      }
+      setLoadError("Could not load this bill.");
       pushApiError(e, logContext(PAGE, "load"));
     }
   }, [billId, pushApiError]);
@@ -34,6 +50,17 @@ export function BillDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  if (loadError) {
+    return (
+      <div className="kb-page">
+        <p className="kb-error-text">{loadError}</p>
+        <p>
+          <Link to="/bills">← Bills</Link>
+        </p>
+      </div>
+    );
+  }
 
   if (!data) {
     return <div className="kb-page">Loading…</div>;
