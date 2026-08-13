@@ -26,6 +26,9 @@ test("invoice flow: create draft, mark sent, post GL", async ({ page }) => {
 test("bill flow: create draft, mark open, post GL", async ({ page }) => {
   await page.goto("/bills/new");
 
+  await page
+    .getByLabel("Vendor (optional)")
+    .selectOption({ label: "Office Mart" });
   await page.getByLabel("Bill #").fill("B-E2E-1");
   await page.getByLabel("Amount (minor units)").fill("1200");
   await page.getByTestId("bill-new-save-draft").click();
