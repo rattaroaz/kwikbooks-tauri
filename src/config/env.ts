@@ -20,10 +20,14 @@ export const env = {
   isProd: import.meta.env.PROD,
   mode: import.meta.env.MODE,
   /**
-   * Opt-in remote telemetry (not wired in v1). `captureException` always logs to
-   * the host via plugin-log regardless of this flag.
+   * Verbose **local** diagnostics on exception capture (breadcrumbs + app meta).
+   * Offline-only — never sends data remotely. Default: on in DEV.
+   * Accepts `VITE_DIAGNOSTICS` or legacy `VITE_TELEMETRY`.
    */
-  telemetry: parseBool(import.meta.env.VITE_TELEMETRY, false),
+  diagnostics: parseBool(
+    import.meta.env.VITE_DIAGNOSTICS ?? import.meta.env.VITE_TELEMETRY,
+    import.meta.env.DEV,
+  ),
   /**
    * Log each IPC call timing/detail via `@tauri-apps/plugin-log` (default: on in dev, off in prod).
    */

@@ -21,6 +21,7 @@ pub fn open_sqlite(path: &Path) -> Result<Connection, DbCommandError> {
         r#"
         PRAGMA foreign_keys = ON;
         PRAGMA journal_mode = WAL;
+        PRAGMA busy_timeout = 5000;
         "#,
     )
     .map_err(|e| {

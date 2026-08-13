@@ -66,6 +66,8 @@ export function PayBillPage() {
       push("error", "Select a vendor and bank account.");
       return;
     }
+    setSubmitting(true);
+    let createdId: number | undefined;
     try {
       const amountMinor = parseMinorInt(amountStr);
       if (amountMinor <= 0) {
@@ -77,8 +79,7 @@ export function PayBillPage() {
         push("error", "Bill id must be a positive whole number.");
         return;
       }
-      setSubmitting(true);
-      await api.vendorPaymentCreate({
+      createdId = await api.vendorPaymentCreate({
         vendorId,
         bankAccountId,
         paymentDate: paymentDate.trim(),
@@ -86,11 +87,22 @@ export function PayBillPage() {
         memo: memo.trim() || undefined,
         billId,
       });
+      await api.vendorPaymentPost(createdId);
       push("success", "Vendor payment recorded and posted");
       setAmountStr("");
       setBillIdStr("");
       setMemo("");
     } catch (err) {
+      if (createdId !== undefined) {
+        try {
+          await api.vendorPaymentDeleteUnposted(createdId);
+        } catch {
+          push(
+            "error",
+            `Payment #${createdId} was created but not posted; delete the draft or retry post.`,
+          );
+        }
+      }
       pushApiError(err, logContext(PAGE, "submit"));
     } finally {
       setSubmitting(false);
@@ -103,7 +115,25 @@ export function PayBillPage() {
       <p className="kb-muted">
         Records a vendor payment and posts it to the general ledger (AP debit,
         bank credit). Applying to a bill reduces that bill's open balance and
-        marks it paid when fully covered.
+        marks it paid when fully covered. To print a paper check, use{" "}
+        <Link to="/checks/write">Write check</Link>
+        {billIdStr.trim() ? ` with bill ${billIdStr.trim()}` : ""}.
+      </p>
+      <p className="kb-muted">
+        <Link
+          to={
+            billIdStr.trim() || vendorId
+              ? `/checks/write?${[
+                  vendorId ? `vendorId=${vendorId}` : "",
+                  billIdStr.trim() ? `billId=${billIdStr.trim()}` : "",
+                ]
+                  .filter(Boolean)
+                  .join("&")}`
+              : "/checks/write"
+          }
+        >
+          Pay with check…
+        </Link>
       </p>
       {banks.length === 0 && (
         <p className="kb-error-text">
@@ -173,7 +203,7 @@ export function PayBillPage() {
           data-testid="pay-bill-submit"
           disabled={banks.length === 0 || submitting}
         >
-          Record &amp; post
+          {submitting ? "Posting…" : "Record & post"}
         </button>
       </form>
     </div>

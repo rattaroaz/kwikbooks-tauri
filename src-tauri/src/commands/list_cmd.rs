@@ -2,7 +2,7 @@ use crate::ipc_log::timed_ipc;
 use crate::db::{open_sqlite, DbCommandError, DbState};
 use crate::domain::lists::{
     bill_get, bills_list, customers_list, invoice_get, invoices_list, journals_list,
-    vendors_list,
+    vendor_payment_get, vendor_payments_list, vendors_list,
 };
 use tauri::State;
 
@@ -241,4 +241,36 @@ mod tests {
         let rows = list_journals_impl(&db_path, None).expect("list journals");
         assert_eq!(rows.len(), 3);
     }
+}
+
+#[tauri::command]
+pub fn list_vendor_payments(
+    state: State<'_, DbState>,
+) -> Result<Vec<serde_json::Value>, DbCommandError> {
+    timed_ipc("list_vendor_payments", || {
+        let conn = open_sqlite(&state.db_path)?;
+        let v = vendor_payments_list(&conn)?;
+        log::debug!(
+            target: "kwikbooks_lib::ipc::lists",
+            "list_vendor_payments rows={}",
+            v.len()
+        );
+        Ok(v)
+    })
+}
+
+#[tauri::command]
+pub fn get_vendor_payment(
+    state: State<'_, DbState>,
+    payment_id: i64,
+) -> Result<serde_json::Value, DbCommandError> {
+    timed_ipc("get_vendor_payment", || {
+        let conn = open_sqlite(&state.db_path)?;
+        log::debug!(
+            target: "kwikbooks_lib::ipc::lists",
+            "get_vendor_payment payment_id={}",
+            payment_id
+        );
+        vendor_payment_get(&conn, payment_id)
+    })
 }

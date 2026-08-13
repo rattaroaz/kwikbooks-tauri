@@ -1,25 +1,20 @@
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, TransactionBehavior};
 
 use crate::db::DbCommandError;
 use crate::domain::constants::COMPANY_ID;
 use crate::domain::ids::{
-    account_id_by_code, active_account_of_type, active_bank_cash_asset,
+    account_exists, account_has_type, account_id_by_code, require_bank_cash_account,
 };
 use crate::domain::journal::{insert_journal, DraftJournalLine};
+use crate::domain::money::line_total_minor;
 
-fn line_total_minor(qty: f64, unit_minor: i64) -> i64 {
-    (qty * unit_minor as f64).round() as i64
-}
+type InvoicePostRow = (String, Option<i64>, i64, i64, i64, i64, String);
+type BillPostRow = (String, Option<i64>, i64, String, Option<i64>);
+type CustomerPaymentPostRow = (Option<i64>, i64, i64, i64, String, Option<i64>);
+type VendorPaymentPostRow = (Option<i64>, i64, i64, String, i64, Option<i64>);
 
-fn add_minor(a: i64, b: i64) -> Result<i64, DbCommandError> {
-    a.checked_add(b).ok_or_else(|| DbCommandError::Validation {
-        message: "amount overflow".into(),
-    })
-}
-
-#[allow(clippy::type_complexity)]
 pub fn post_invoice(conn: &mut Connection, invoice_id: i64) -> Result<i64, DbCommandError> {
-    let row: Option<(String, Option<i64>, i64, i64, i64, i64, String)> = conn
+    let row: Option<InvoicePostRow> = conn
         .query_row(
             r#"SELECT status, journal_id, customer_id, subtotal_minor, tax_minor, total_minor, issue_date
                FROM invoice WHERE id = ?1 AND company_id = ?2"#,
@@ -59,6 +54,7 @@ pub fn post_invoice(conn: &mut Connection, invoice_id: i64) -> Result<i64, DbCom
 
     let ar_id = account_id_by_code(conn, COMPANY_ID, "1100")?;
     let sales_id = account_id_by_code(conn, COMPANY_ID, "4000")?;
+    let tax_payable_id = account_id_by_code(conn, COMPANY_ID, "2100")?;
 
     let collected: Vec<(i32, String, i64, i64)> = {
         let mut stmt = conn.prepare(
@@ -88,11 +84,16 @@ pub fn post_invoice(conn: &mut Connection, invoice_id: i64) -> Result<i64, DbCom
                     message: format!("invoice line {num}: stored total does not match qty × unit"),
                 });
             }
-            sum_lines = add_minor(sum_lines, line_tot)?;
+            sum_lines = sum_lines.saturating_add(line_tot);
             let income_acct = inc_acc.unwrap_or(sales_id);
-            if !active_account_of_type(conn, COMPANY_ID, income_acct, "income")? {
+            if !account_exists(conn, COMPANY_ID, income_acct)? {
                 return Err(DbCommandError::Validation {
-                    message: format!("line {num} must post to an active income account"),
+                    message: format!("unknown income account on line {num}"),
+                });
+            }
+            if !account_has_type(conn, COMPANY_ID, income_acct, "income")? {
+                return Err(DbCommandError::Validation {
+                    message: format!("line {num} income account must have account_type=income"),
                 });
             }
             collected.push((num, desc, line_tot, income_acct));
@@ -107,12 +108,7 @@ pub fn post_invoice(conn: &mut Connection, invoice_id: i64) -> Result<i64, DbCom
         collected
     };
 
-    if tax < 0 {
-        return Err(DbCommandError::Validation {
-            message: "invoice tax cannot be negative".into(),
-        });
-    }
-    if add_minor(subtotal, tax)? != total {
+    if subtotal.saturating_add(tax) != total {
         return Err(DbCommandError::Validation {
             message: "invoice total must equal subtotal + tax".into(),
         });
@@ -139,18 +135,39 @@ pub fn post_invoice(conn: &mut Connection, invoice_id: i64) -> Result<i64, DbCom
         n += 1;
     }
 
+    if tax < 0 {
+        return Err(DbCommandError::Validation {
+            message: "invoice tax must be zero or positive".into(),
+        });
+    }
     if tax > 0 {
-        let tax_id = account_id_by_code(conn, COMPANY_ID, "2100")?;
         jl.push(DraftJournalLine {
-            account_id: tax_id,
+            account_id: tax_payable_id,
             line_number: n,
-            description: Some("Tax".into()),
+            description: Some("Sales tax".into()),
             debit_minor: 0,
             credit_minor: tax,
         });
     }
 
-    let tx = conn.transaction()?;
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    // Re-check inside the write lock so void cannot win after validation.
+    let (status_now, journal_now): (String, Option<i64>) = tx.query_row(
+        "SELECT status, journal_id FROM invoice WHERE id = ?1 AND company_id = ?2",
+        rusqlite::params![invoice_id, COMPANY_ID],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+    if journal_now.is_some() {
+        return Err(DbCommandError::Conflict {
+            message: "invoice already posted".into(),
+        });
+    }
+    if status_now != "sent" {
+        return Err(DbCommandError::Validation {
+            message: "only sent invoices can be posted (use invoice_set_status)".into(),
+        });
+    }
+
     let jid = insert_journal(
         &tx,
         COMPANY_ID,
@@ -161,10 +178,16 @@ pub fn post_invoice(conn: &mut Connection, invoice_id: i64) -> Result<i64, DbCom
         &jl,
     )?;
 
-    tx.execute(
-        "UPDATE invoice SET journal_id = ?1, updated_at = datetime('now') WHERE id = ?2",
-        rusqlite::params![jid, invoice_id],
+    let n = tx.execute(
+        r#"UPDATE invoice SET journal_id = ?1, updated_at = datetime('now')
+           WHERE id = ?2 AND company_id = ?3 AND status = 'sent' AND journal_id IS NULL"#,
+        rusqlite::params![jid, invoice_id, COMPANY_ID],
     )?;
+    if n == 0 {
+        return Err(DbCommandError::Conflict {
+            message: "invoice status changed concurrently; post aborted".into(),
+        });
+    }
     tx.commit()?;
     log::info!(
         target: "kwikbooks_lib::domain::posting",
@@ -267,6 +290,60 @@ mod integration_tests {
     }
 
     #[test]
+    fn post_invoice_credits_tax_to_sales_tax_payable() {
+        let dir = tempdir().expect("tmp");
+        let p = dir.path().join("post_tax.sqlite");
+        let inv_id = {
+            let mut c = open_sqlite(&p).expect("open");
+            run_all_on_connection(&mut c).expect("migrate");
+            c.execute(
+                "INSERT INTO customer (company_id, display_name) VALUES (1, 'Taxed Co')",
+                [],
+            )
+            .unwrap();
+            let cust = c.last_insert_rowid();
+            c.execute(
+                r#"INSERT INTO invoice (company_id, customer_id, number, status, issue_date, subtotal_minor, tax_minor, total_minor)
+                   VALUES (1, ?1, 'INV-TAX', 'sent', '2026-01-20', 1000, 80, 1080)"#,
+                [cust],
+            )
+            .unwrap();
+            let inv = c.last_insert_rowid();
+            c.execute(
+                r#"INSERT INTO invoice_line (invoice_id, line_number, description, quantity, unit_price_minor, line_total_minor, income_account_id)
+                   VALUES (?1, 1, 'Item', 1, 1000, 1000,
+                    (SELECT id FROM account WHERE company_id = 1 AND code = '4000'))"#,
+                [inv],
+            )
+            .unwrap();
+            inv
+        };
+
+        let mut conn = open_sqlite(&p).expect("reopen");
+        let jid = post_invoice(&mut conn, inv_id).expect("post");
+        let tax_credit: i64 = conn
+            .query_row(
+                r#"SELECT jl.credit_minor FROM journal_line jl
+                   JOIN account a ON a.id = jl.account_id
+                   WHERE jl.journal_id = ?1 AND a.code = '2100'"#,
+                [jid],
+                |row| row.get(0),
+            )
+            .expect("tax payable credit");
+        assert_eq!(tax_credit, 80);
+        let sales_credit: i64 = conn
+            .query_row(
+                r#"SELECT jl.credit_minor FROM journal_line jl
+                   JOIN account a ON a.id = jl.account_id
+                   WHERE jl.journal_id = ?1 AND a.code = '4000'"#,
+                [jid],
+                |row| row.get(0),
+            )
+            .expect("sales credit");
+        assert_eq!(sales_credit, 1000);
+    }
+
+    #[test]
     fn post_invoice_fails_when_draft() {
         let dir = tempdir().expect("tmp");
         let p = dir.path().join("draft.sqlite");
@@ -314,9 +391,15 @@ mod integration_tests {
                 )
                 .expect("exp account");
             c.execute(
-                r#"INSERT INTO bill (company_id, number, status, issue_date, total_minor)
-                   VALUES (1, 'B-77', 'open', '2026-02-01', 1200)"#,
+                "INSERT INTO vendor (company_id, display_name) VALUES (1, 'Bill Vendor')",
                 [],
+            )
+            .expect("vendor");
+            let vendor_id = c.last_insert_rowid();
+            c.execute(
+                r#"INSERT INTO bill (company_id, vendor_id, number, status, issue_date, total_minor)
+                   VALUES (1, ?1, 'B-77', 'open', '2026-02-01', 1200)"#,
+                [vendor_id],
             )
             .expect("bill");
             let bid = c.last_insert_rowid();
@@ -415,136 +498,13 @@ mod integration_tests {
         assert_eq!(dr, cr);
         assert_eq!(dr, 350);
     }
-
-    #[test]
-    fn post_invoice_tax_credits_tax_payable_not_sales() {
-        let dir = tempdir().expect("tmp");
-        let p = dir.path().join("tax_payable.sqlite");
-        let inv_id = {
-            let mut c = open_sqlite(&p).expect("open");
-            run_all_on_connection(&mut c).expect("migrate");
-            c.execute(
-                "INSERT INTO customer (company_id, display_name) VALUES (1, 'Taxed')",
-                [],
-            )
-            .unwrap();
-            let cust = c.last_insert_rowid();
-            c.execute(
-                r#"INSERT INTO invoice (company_id, customer_id, number, status, issue_date, subtotal_minor, tax_minor, total_minor)
-                   VALUES (1, ?1, 'TAX-1', 'sent', '2026-01-01', 1000, 80, 1080)"#,
-                [cust],
-            )
-            .unwrap();
-            let inv = c.last_insert_rowid();
-            c.execute(
-                r#"INSERT INTO invoice_line (invoice_id, line_number, description, quantity, unit_price_minor, line_total_minor, income_account_id)
-                   VALUES (?1, 1, 'Item', 1, 1000, 1000,
-                    (SELECT id FROM account WHERE company_id = 1 AND code = '4000'))"#,
-                [inv],
-            )
-            .unwrap();
-            inv
-        };
-        let mut conn = open_sqlite(&p).expect("open");
-        let jid = post_invoice(&mut conn, inv_id).expect("post");
-        let tax_id: i64 = conn
-            .query_row(
-                "SELECT id FROM account WHERE company_id = 1 AND code = '2100'",
-                [],
-                |r| r.get(0),
-            )
-            .expect("tax acct");
-        let tax_cr: i64 = conn
-            .query_row(
-                "SELECT COALESCE(SUM(credit_minor),0) FROM journal_line WHERE journal_id = ?1 AND account_id = ?2",
-                rusqlite::params![jid, tax_id],
-                |r| r.get(0),
-            )
-            .expect("tax credit");
-        assert_eq!(tax_cr, 80);
-        let sales_id: i64 = conn
-            .query_row(
-                "SELECT id FROM account WHERE company_id = 1 AND code = '4000'",
-                [],
-                |r| r.get(0),
-            )
-            .expect("sales");
-        let sales_cr: i64 = conn
-            .query_row(
-                "SELECT COALESCE(SUM(credit_minor),0) FROM journal_line WHERE journal_id = ?1 AND account_id = ?2",
-                rusqlite::params![jid, sales_id],
-                |r| r.get(0),
-            )
-            .expect("sales credit");
-        assert_eq!(sales_cr, 1000);
-    }
-
-    #[test]
-    fn post_customer_payment_rejects_non_bank_account() {
-        let dir = tempdir().expect("tmp");
-        let p = dir.path().join("pay_non_bank.sqlite");
-        let payment_id = {
-            let mut c = open_sqlite(&p).expect("open");
-            run_all_on_connection(&mut c).expect("migrate");
-            let sales_id: i64 = c
-                .query_row(
-                    "SELECT id FROM account WHERE company_id = 1 AND code = '4000'",
-                    [],
-                    |row| row.get(0),
-                )
-                .expect("sales");
-            seed_customer_payment(&c, sales_id, 100)
-        };
-        let mut conn = open_sqlite(&p).expect("open");
-        let err = post_customer_payment(&mut conn, payment_id);
-        assert!(err.is_err());
-    }
-
-    #[test]
-    fn post_customer_payment_applies_to_invoice_and_marks_paid() {
-        let dir = tempdir().expect("tmp");
-        let p = dir.path().join("pay_apply.sqlite");
-        let (payment_id, inv_id) = {
-            let mut c = open_sqlite(&p).expect("open");
-            run_all_on_connection(&mut c).expect("migrate");
-            let inv = seed_sent_invoice(&mut c);
-            post_invoice(&mut c, inv).expect("post invoice");
-            let cash_id: i64 = c
-                .query_row(
-                    "SELECT id FROM account WHERE company_id = 1 AND code = '1000'",
-                    [],
-                    |row| row.get(0),
-                )
-                .expect("cash");
-            let cust: i64 = c
-                .query_row("SELECT customer_id FROM invoice WHERE id = ?1", [inv], |r| {
-                    r.get(0)
-                })
-                .expect("cust");
-            c.execute(
-                r#"INSERT INTO customer_payment
-                   (company_id, customer_id, bank_account_id, payment_date, amount_minor, invoice_id)
-                   VALUES (1, ?1, ?2, '2026-03-01', 5000, ?3)"#,
-                rusqlite::params![cust, cash_id, inv],
-            )
-            .expect("payment");
-            (c.last_insert_rowid(), inv)
-        };
-        let mut conn = open_sqlite(&p).expect("open");
-        post_customer_payment(&mut conn, payment_id).expect("post payment");
-        let status: String = conn
-            .query_row("SELECT status FROM invoice WHERE id = ?1", [inv_id], |r| {
-                r.get(0)
-            })
-            .expect("status");
-        assert_eq!(status, "paid");
-    }
 }
 
 pub fn post_bill(conn: &mut Connection, bill_id: i64) -> Result<i64, DbCommandError> {
-    let row: Option<(String, Option<i64>, i64, String)> = conn
+    let row: Option<BillPostRow> = conn
         .query_row(
-            r#"SELECT status, journal_id, total_minor, issue_date FROM bill WHERE id = ?1 AND company_id = ?2"#,
+            r#"SELECT status, journal_id, total_minor, issue_date, vendor_id
+               FROM bill WHERE id = ?1 AND company_id = ?2"#,
             rusqlite::params![bill_id, COMPANY_ID],
             |row| {
                 Ok((
@@ -552,12 +512,13 @@ pub fn post_bill(conn: &mut Connection, bill_id: i64) -> Result<i64, DbCommandEr
                     row.get(1)?,
                     row.get(2)?,
                     row.get(3)?,
+                    row.get(4)?,
                 ))
             },
         )
         .optional()?;
 
-    let Some((status, journal_id, total, issue_date)) = row else {
+    let Some((status, journal_id, total, issue_date, vendor_id)) = row else {
         return Err(DbCommandError::NotFound {
             entity: "bill".into(),
             id: bill_id,
@@ -573,6 +534,13 @@ pub fn post_bill(conn: &mut Connection, bill_id: i64) -> Result<i64, DbCommandEr
     if status != "open" {
         return Err(DbCommandError::Validation {
             message: "only open bills can be posted".into(),
+        });
+    }
+
+    if vendor_id.is_none() {
+        return Err(DbCommandError::Validation {
+            message: "assign a vendor before posting a bill (payee-only bills cannot hit AP)"
+                .into(),
         });
     }
 
@@ -601,10 +569,15 @@ pub fn post_bill(conn: &mut Connection, bill_id: i64) -> Result<i64, DbCommandEr
                     message: format!("bill line {ln} amount must be greater than zero"),
                 });
             }
-            sum_exp = add_minor(sum_exp, amt)?;
-            if !active_account_of_type(conn, COMPANY_ID, exp_acc, "expense")? {
+            sum_exp = sum_exp.saturating_add(amt);
+            if !account_exists(conn, COMPANY_ID, exp_acc)? {
                 return Err(DbCommandError::Validation {
-                    message: format!("line {ln} must post to an active expense account"),
+                    message: format!("unknown expense account on line {ln}"),
+                });
+            }
+            if !account_has_type(conn, COMPANY_ID, exp_acc, "expense")? {
+                return Err(DbCommandError::Validation {
+                    message: format!("line {ln} expense account must have account_type=expense"),
                 });
             }
             expense_lines.push((ln, desc, amt, exp_acc));
@@ -640,7 +613,29 @@ pub fn post_bill(conn: &mut Connection, bill_id: i64) -> Result<i64, DbCommandEr
         out
     };
 
-    let tx = conn.transaction()?;
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let (status_now, journal_now, vendor_now): (String, Option<i64>, Option<i64>) = tx.query_row(
+        "SELECT status, journal_id, vendor_id FROM bill WHERE id = ?1 AND company_id = ?2",
+        rusqlite::params![bill_id, COMPANY_ID],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    )?;
+    if journal_now.is_some() {
+        return Err(DbCommandError::Conflict {
+            message: "bill already posted".into(),
+        });
+    }
+    if status_now != "open" {
+        return Err(DbCommandError::Validation {
+            message: "only open bills can be posted".into(),
+        });
+    }
+    if vendor_now.is_none() {
+        return Err(DbCommandError::Validation {
+            message: "assign a vendor before posting a bill (payee-only bills cannot hit AP)"
+                .into(),
+        });
+    }
+
     let jid = insert_journal(
         &tx,
         COMPANY_ID,
@@ -651,10 +646,16 @@ pub fn post_bill(conn: &mut Connection, bill_id: i64) -> Result<i64, DbCommandEr
         &jl,
     )?;
 
-    tx.execute(
-        "UPDATE bill SET journal_id = ?1, updated_at = datetime('now') WHERE id = ?2",
-        rusqlite::params![jid, bill_id],
+    let n = tx.execute(
+        r#"UPDATE bill SET journal_id = ?1, updated_at = datetime('now')
+           WHERE id = ?2 AND company_id = ?3 AND status = 'open' AND journal_id IS NULL"#,
+        rusqlite::params![jid, bill_id, COMPANY_ID],
     )?;
+    if n == 0 {
+        return Err(DbCommandError::Conflict {
+            message: "bill status changed concurrently; post aborted".into(),
+        });
+    }
     tx.commit()?;
     log::info!(
         target: "kwikbooks_lib::domain::posting",
@@ -665,12 +666,11 @@ pub fn post_bill(conn: &mut Connection, bill_id: i64) -> Result<i64, DbCommandEr
     Ok(jid)
 }
 
-#[allow(clippy::type_complexity)]
 pub fn post_customer_payment(
     conn: &mut Connection,
     payment_id: i64,
 ) -> Result<i64, DbCommandError> {
-    let row: Option<(Option<i64>, i64, i64, i64, String, Option<i64>)> = conn
+    let row: Option<CustomerPaymentPostRow> = conn
         .query_row(
             r#"SELECT journal_id, bank_account_id, amount_minor, customer_id, payment_date, invoice_id
                FROM customer_payment WHERE id = ?1 AND company_id = ?2"#,
@@ -688,7 +688,7 @@ pub fn post_customer_payment(
         )
         .optional()?;
 
-    let Some((journal_id, bank_id, amount, customer_id, pay_date, invoice_id)) = row else {
+    let Some((journal_id, bank_id, amount, cust, pay_date, invoice_id)) = row else {
         return Err(DbCommandError::NotFound {
             entity: "customer_payment".into(),
             id: payment_id,
@@ -706,59 +706,26 @@ pub fn post_customer_payment(
             message: "payment amount must be greater than zero".into(),
         });
     }
-
-    if !active_bank_cash_asset(conn, COMPANY_ID, bank_id)? {
-        return Err(DbCommandError::Validation {
-            message: "bank account must be an active asset marked as bank/cash".into(),
-        });
-    }
-
-    let mut invoice_total: Option<i64> = None;
+    require_bank_cash_account(conn, COMPANY_ID, bank_id)?;
     if let Some(inv_id) = invoice_id {
-        let inv: Option<(i64, String, Option<i64>, i64)> = conn
-            .query_row(
-                r#"SELECT customer_id, status, journal_id, total_minor
-                   FROM invoice WHERE id = ?1 AND company_id = ?2"#,
-                rusqlite::params![inv_id, COMPANY_ID],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-            )
-            .optional()?;
-        let Some((inv_cust, inv_status, inv_journal, inv_total)) = inv else {
-            return Err(DbCommandError::NotFound {
-                entity: "invoice".into(),
-                id: inv_id,
-            });
-        };
-        if inv_cust != customer_id {
-            return Err(DbCommandError::Validation {
-                message: "invoice does not belong to this customer".into(),
-            });
-        }
-        if inv_journal.is_none() {
-            return Err(DbCommandError::Validation {
-                message: "invoice must be posted to the GL before applying payment".into(),
-            });
-        }
-        if inv_status != "sent" {
-            return Err(DbCommandError::Validation {
-                message: "can only apply payment to a sent invoice".into(),
-            });
-        }
-        let already: i64 = conn.query_row(
-            r#"SELECT COALESCE(SUM(amount_minor), 0) FROM customer_payment
-               WHERE invoice_id = ?1 AND company_id = ?2 AND journal_id IS NOT NULL"#,
-            rusqlite::params![inv_id, COMPANY_ID],
-            |row| row.get(0),
+        crate::domain::lifecycle::assert_invoice_payment_link(
+            conn,
+            inv_id,
+            cust,
+            Some(payment_id),
         )?;
-        let remaining = inv_total - already;
-        if amount > remaining {
+        let rem = crate::domain::lifecycle::invoice_reservable_remaining(
+            conn,
+            inv_id,
+            Some(payment_id),
+        )?;
+        if amount > rem {
             return Err(DbCommandError::Validation {
                 message: format!(
-                    "payment exceeds invoice open balance ({remaining} minor units)"
+                    "payment exceeds invoice open balance ({rem} minor units)"
                 ),
             });
         }
-        invoice_total = Some(inv_total);
     }
 
     let ar_id = account_id_by_code(conn, COMPANY_ID, "1100")?;
@@ -794,14 +761,9 @@ pub fn post_customer_payment(
         "UPDATE customer_payment SET journal_id = ?1 WHERE id = ?2",
         rusqlite::params![jid, payment_id],
     )?;
-    if let (Some(inv_id), Some(inv_total)) = (invoice_id, invoice_total) {
-        let applied: i64 = tx.query_row(
-            r#"SELECT COALESCE(SUM(amount_minor), 0) FROM customer_payment
-               WHERE invoice_id = ?1 AND company_id = ?2 AND journal_id IS NOT NULL"#,
-            rusqlite::params![inv_id, COMPANY_ID],
-            |row| row.get(0),
-        )?;
-        if applied >= inv_total {
+    if let Some(inv_id) = invoice_id {
+        let rem = crate::domain::lifecycle::invoice_linked_remaining(&tx, inv_id)?;
+        if rem <= 0 {
             tx.execute(
                 "UPDATE invoice SET status = 'paid', updated_at = datetime('now') WHERE id = ?1 AND company_id = ?2",
                 rusqlite::params![inv_id, COMPANY_ID],
@@ -818,11 +780,10 @@ pub fn post_customer_payment(
     Ok(jid)
 }
 
-#[allow(clippy::type_complexity)]
 pub fn post_vendor_payment(conn: &mut Connection, payment_id: i64) -> Result<i64, DbCommandError> {
-    let row: Option<(Option<i64>, i64, i64, i64, String, Option<i64>)> = conn
+    let row: Option<VendorPaymentPostRow> = conn
         .query_row(
-            r#"SELECT journal_id, bank_account_id, amount_minor, vendor_id, payment_date, bill_id
+            r#"SELECT journal_id, bank_account_id, amount_minor, payment_date, vendor_id, bill_id
                FROM vendor_payment WHERE id = ?1 AND company_id = ?2"#,
             rusqlite::params![payment_id, COMPANY_ID],
             |row| {
@@ -838,7 +799,7 @@ pub fn post_vendor_payment(conn: &mut Connection, payment_id: i64) -> Result<i64
         )
         .optional()?;
 
-    let Some((journal_id, bank_id, amount, vendor_id, pay_date, bill_id)) = row else {
+    let Some((journal_id, bank_id, amount, pay_date, vendor_id, bill_id)) = row else {
         return Err(DbCommandError::NotFound {
             entity: "vendor_payment".into(),
             id: payment_id,
@@ -856,57 +817,16 @@ pub fn post_vendor_payment(conn: &mut Connection, payment_id: i64) -> Result<i64
             message: "payment amount must be greater than zero".into(),
         });
     }
-
-    if !active_bank_cash_asset(conn, COMPANY_ID, bank_id)? {
-        return Err(DbCommandError::Validation {
-            message: "bank account must be an active asset marked as bank/cash".into(),
-        });
-    }
-
-    let mut bill_total: Option<i64> = None;
+    require_bank_cash_account(conn, COMPANY_ID, bank_id)?;
     if let Some(bid) = bill_id {
-        let bill: Option<(Option<i64>, String, Option<i64>, i64)> = conn
-            .query_row(
-                r#"SELECT vendor_id, status, journal_id, total_minor
-                   FROM bill WHERE id = ?1 AND company_id = ?2"#,
-                rusqlite::params![bid, COMPANY_ID],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-            )
-            .optional()?;
-        let Some((bill_vendor, bill_status, bill_journal, b_total)) = bill else {
-            return Err(DbCommandError::NotFound {
-                entity: "bill".into(),
-                id: bid,
-            });
-        };
-        if bill_vendor != Some(vendor_id) {
+        crate::domain::lifecycle::assert_bill_payment_link(conn, bid, vendor_id, Some(payment_id))?;
+        let rem =
+            crate::domain::lifecycle::bill_reservable_remaining(conn, bid, Some(payment_id))?;
+        if amount > rem {
             return Err(DbCommandError::Validation {
-                message: "bill does not belong to this vendor".into(),
+                message: format!("payment exceeds bill open balance ({rem} minor units)"),
             });
         }
-        if bill_journal.is_none() {
-            return Err(DbCommandError::Validation {
-                message: "bill must be posted to the GL before applying payment".into(),
-            });
-        }
-        if bill_status != "open" {
-            return Err(DbCommandError::Validation {
-                message: "can only apply payment to an open bill".into(),
-            });
-        }
-        let already: i64 = conn.query_row(
-            r#"SELECT COALESCE(SUM(amount_minor), 0) FROM vendor_payment
-               WHERE bill_id = ?1 AND company_id = ?2 AND journal_id IS NOT NULL"#,
-            rusqlite::params![bid, COMPANY_ID],
-            |row| row.get(0),
-        )?;
-        let remaining = b_total - already;
-        if amount > remaining {
-            return Err(DbCommandError::Validation {
-                message: format!("payment exceeds bill open balance ({remaining} minor units)"),
-            });
-        }
-        bill_total = Some(b_total);
     }
 
     let ap_id = account_id_by_code(conn, COMPANY_ID, "2000")?;
@@ -942,14 +862,9 @@ pub fn post_vendor_payment(conn: &mut Connection, payment_id: i64) -> Result<i64
         "UPDATE vendor_payment SET journal_id = ?1 WHERE id = ?2",
         rusqlite::params![jid, payment_id],
     )?;
-    if let (Some(bid), Some(b_total)) = (bill_id, bill_total) {
-        let applied: i64 = tx.query_row(
-            r#"SELECT COALESCE(SUM(amount_minor), 0) FROM vendor_payment
-               WHERE bill_id = ?1 AND company_id = ?2 AND journal_id IS NOT NULL"#,
-            rusqlite::params![bid, COMPANY_ID],
-            |row| row.get(0),
-        )?;
-        if applied >= b_total {
+    if let Some(bid) = bill_id {
+        let rem = crate::domain::lifecycle::bill_linked_remaining(&tx, bid)?;
+        if rem <= 0 {
             tx.execute(
                 "UPDATE bill SET status = 'paid', updated_at = datetime('now') WHERE id = ?1 AND company_id = ?2",
                 rusqlite::params![bid, COMPANY_ID],

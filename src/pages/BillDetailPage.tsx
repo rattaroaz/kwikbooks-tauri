@@ -42,6 +42,7 @@ export function BillDetailPage() {
       if (seq !== loadSeq.current) {
         return;
       }
+      setData(null);
       setLoadError("Could not load this bill.");
       pushApiError(e, logContext(PAGE, "load"));
     }
@@ -54,10 +55,11 @@ export function BillDetailPage() {
   if (loadError) {
     return (
       <div className="kb-page">
-        <p className="kb-error-text">{loadError}</p>
         <p>
           <Link to="/bills">← Bills</Link>
         </p>
+        <h1>Bill</h1>
+        <p className="kb-error-text">{loadError}</p>
       </div>
     );
   }

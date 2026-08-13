@@ -4,6 +4,9 @@ use crate::ipc_log::timed_ipc;
 use crate::db::{open_sqlite, DbCommandError, DbState};
 use crate::domain::accounts::{list_accounts, AccountFilter};
 use crate::domain::constants::COMPANY_ID;
+use crate::domain::ids::{
+    account_code_is_protected, account_has_journal_lines, require_bank_cash_flag,
+};
 use tauri::State;
 
 #[derive(Debug, Deserialize)]
@@ -109,6 +112,7 @@ fn account_create_impl(
     db_path: &std::path::Path,
     input: AccountCreateInput,
 ) -> Result<i64, DbCommandError> {
+    require_bank_cash_flag(input.is_bank_cash, &input.account_type, &input.code)?;
     let conn = open_sqlite(db_path)?;
     conn.execute(
         r#"INSERT INTO account (company_id, code, name, account_type, parent_id, is_bank_cash, sort_order)
@@ -178,12 +182,48 @@ fn account_update_impl(
         c_parent
     };
 
-    let code = input.code.unwrap_or(c_code);
+    let code = input.code.unwrap_or(c_code.clone());
     let name = input.name.unwrap_or(c_name);
-    let account_type = input.account_type.unwrap_or(c_type);
+    let account_type = input.account_type.unwrap_or(c_type.clone());
     let is_bank_cash = input.is_bank_cash.unwrap_or(c_bank);
     let is_active = input.is_active.unwrap_or(c_active);
     let sort_order = input.sort_order.unwrap_or(c_sort);
+    require_bank_cash_flag(is_bank_cash, &account_type, &code)?;
+
+    if account_type != c_type {
+        if account_code_is_protected(&c_code) {
+            return Err(DbCommandError::Validation {
+                message: format!(
+                    "cannot change account_type of protected system account {}",
+                    c_code
+                ),
+            });
+        }
+        if account_has_journal_lines(&conn, input.id)? {
+            return Err(DbCommandError::Validation {
+                message: "cannot change account_type after the account has journal activity"
+                    .into(),
+            });
+        }
+    }
+    if !is_active && account_code_is_protected(&c_code) {
+        return Err(DbCommandError::Validation {
+            message: format!("cannot deactivate protected system account {}", c_code),
+        });
+    }
+    if code != c_code && account_code_is_protected(&c_code) {
+        return Err(DbCommandError::Validation {
+            message: format!("cannot change code of protected system account {}", c_code),
+        });
+    }
+    if c_bank && !is_bank_cash && account_code_is_protected(&c_code) {
+        return Err(DbCommandError::Validation {
+            message: format!(
+                "cannot clear bank/cash on protected system account {}",
+                c_code
+            ),
+        });
+    }
 
     let n = conn.execute(
         r#"UPDATE account SET
@@ -229,6 +269,22 @@ fn account_deactivate_impl(
     id: i64,
 ) -> Result<RowsAffected, DbCommandError> {
     let conn = open_sqlite(db_path)?;
+    let code: Result<String, _> = conn.query_row(
+        "SELECT code FROM account WHERE id = ?1 AND company_id = ?2",
+        rusqlite::params![id, COMPANY_ID],
+        |row| row.get(0),
+    );
+    let Ok(code) = code else {
+        return Err(DbCommandError::NotFound {
+            entity: "account".into(),
+            id,
+        });
+    };
+    if account_code_is_protected(&code) {
+        return Err(DbCommandError::Validation {
+            message: format!("cannot deactivate protected system account {code}"),
+        });
+    }
     let n = conn.execute(
         "UPDATE account SET is_active = 0 WHERE id = ?1 AND company_id = ?2",
         rusqlite::params![id, COMPANY_ID],

@@ -66,6 +66,8 @@ export function ReceivePaymentPage() {
       push("error", "Select a customer and bank account.");
       return;
     }
+    setSubmitting(true);
+    let createdId: number | undefined;
     try {
       const amountMinor = parseMinorInt(amountStr);
       if (amountMinor <= 0) {
@@ -81,8 +83,7 @@ export function ReceivePaymentPage() {
         push("error", "Invoice id must be a positive whole number.");
         return;
       }
-      setSubmitting(true);
-      await api.customerPaymentCreate({
+      createdId = await api.customerPaymentCreate({
         customerId,
         bankAccountId,
         paymentDate: paymentDate.trim(),
@@ -90,11 +91,22 @@ export function ReceivePaymentPage() {
         memo: memo.trim() || undefined,
         invoiceId,
       });
+      await api.customerPaymentPost(createdId);
       push("success", "Customer payment recorded and posted");
       setAmountStr("");
       setInvoiceIdStr("");
       setMemo("");
     } catch (err) {
+      if (createdId !== undefined) {
+        try {
+          await api.customerPaymentDeleteUnposted(createdId);
+        } catch {
+          push(
+            "error",
+            `Payment #${createdId} was created but not posted; delete the draft or retry post.`,
+          );
+        }
+      }
       pushApiError(err, logContext(PAGE, "submit"));
     } finally {
       setSubmitting(false);
@@ -177,7 +189,7 @@ export function ReceivePaymentPage() {
           data-testid="receive-payment-submit"
           disabled={banks.length === 0 || submitting}
         >
-          Record &amp; post
+          {submitting ? "Posting…" : "Record & post"}
         </button>
       </form>
     </div>

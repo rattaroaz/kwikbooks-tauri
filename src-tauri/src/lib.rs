@@ -32,6 +32,9 @@ pub struct HealthResponse {
     pub ok: bool,
     pub sqlite_ok: bool,
     pub migration_version: i32,
+    pub app_version: String,
+    pub log_level: String,
+    pub slow_ipc_ms: u64,
 }
 
 /// Ensures the database exists and all migrations are applied (idempotent).
@@ -76,7 +79,7 @@ fn db_migrate(state: tauri::State<'_, DbState>) -> Result<MigrateResponse, DbCom
     })
 }
 
-/// Lightweight diagnostics: SQLite ping + schema migration head.
+/// Lightweight diagnostics: SQLite ping + schema migration head + observability meta.
 #[tauri::command]
 fn health_ping(state: tauri::State<'_, DbState>) -> Result<HealthResponse, DbCommandError> {
     timed_ipc("health_ping", || {
@@ -87,6 +90,9 @@ fn health_ping(state: tauri::State<'_, DbState>) -> Result<HealthResponse, DbCom
             ok: true,
             sqlite_ok: true,
             migration_version,
+            app_version: env!("CARGO_PKG_VERSION").into(),
+            log_level: format!("{:?}", logging::max_level_from_env()),
+            slow_ipc_ms: ipc_log::slow_threshold_ms(),
         })
     })
 }
@@ -102,15 +108,48 @@ pub fn run() {
         .setup(|app| {
             log::info!(
                 target: "kwikbooks_lib::startup",
-                "Kwikbooks starting version={} (log_level={:?})",
+                "Kwikbooks starting version={} (log_level={:?} slow_ms={} observability=offline)",
                 env!("CARGO_PKG_VERSION"),
-                logging::max_level_from_env()
+                logging::max_level_from_env(),
+                ipc_log::slow_threshold_ms()
             );
             let handle = app.handle().clone();
+            if let Ok(log_dir) = handle.path().app_log_dir() {
+                let _ = std::fs::create_dir_all(&log_dir);
+                let panic_path = log_dir.join("panic.log");
+                std::panic::set_hook(Box::new(move |info| {
+                    let msg = format!("{info}");
+                    let ts = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0);
+                    let line = format!("unix_secs={ts} PANIC {msg}\n");
+                    if let Ok(mut f) = std::fs::OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open(&panic_path)
+                    {
+                        use std::io::Write;
+                        let _ = f.write_all(line.as_bytes());
+                    }
+                    eprintln!("Kwikbooks panic: {msg}");
+                    log::error!(target: "kwikbooks_lib::panic", "{}", msg);
+                }));
+                log::info!(
+                    target: "kwikbooks_lib::startup",
+                    "log_dir={}",
+                    log_dir.display()
+                );
+            }
             let db_path = resolve_db_path(&handle)?;
+            let db_name = db_path
+                .file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "unknown".into());
             log::info!(
                 target: "kwikbooks_lib::startup",
-                "database path = {}",
+                "database file={} path={}",
+                db_name,
                 db_path.display()
             );
             if let Some(parent) = db_path.parent() {
@@ -139,7 +178,10 @@ pub fn run() {
             commands::invoice_create,
             commands::bill_create,
             commands::customer_payment_create,
+            commands::customer_payment_delete_unposted,
             commands::vendor_payment_create,
+            commands::vendor_payment_delete_unposted,
+            commands::vendor_payment_mark_printed,
             commands::invoice_post,
             commands::bill_post,
             commands::customer_payment_post,
@@ -159,11 +201,14 @@ pub fn run() {
             commands::list_invoices,
             commands::list_bills,
             commands::list_journals,
+            commands::list_vendor_payments,
             commands::get_invoice,
             commands::get_bill,
+            commands::get_vendor_payment,
             commands::import_quickbooks_file,
             commands::global_search,
             commands::logs_read,
+            commands::logs_export_support_bundle,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

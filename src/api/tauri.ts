@@ -137,8 +137,28 @@ export async function customerPaymentCreate(payload: JsonObject) {
   return invoke<number>("customer_payment_create", { input: payload });
 }
 
+export async function customerPaymentDeleteUnposted(paymentId: number) {
+  return invoke<void>("customer_payment_delete_unposted", { paymentId });
+}
+
 export async function vendorPaymentCreate(payload: JsonObject) {
   return invoke<number>("vendor_payment_create", { input: payload });
+}
+
+export async function vendorPaymentDeleteUnposted(paymentId: number) {
+  return invoke<void>("vendor_payment_delete_unposted", { paymentId });
+}
+
+export async function vendorPaymentMarkPrinted(paymentId: number) {
+  return invoke<void>("vendor_payment_mark_printed", { paymentId });
+}
+
+export async function listVendorPayments() {
+  return invoke<unknown[]>("list_vendor_payments");
+}
+
+export async function getVendorPayment(paymentId: number) {
+  return invoke<JsonObject>("get_vendor_payment", { paymentId });
 }
 
 /** Posting & lifecycle */
@@ -213,4 +233,22 @@ export type LogsReadResponse = {
 
 export async function logsRead(maxLines?: number) {
   return invoke<LogsReadResponse>("logs_read", { maxLines });
+}
+
+export type LogsExportResponse = {
+  path: string;
+  bytesWritten: number;
+  lineCount: number;
+};
+
+export async function logsExportSupportBundle(
+  destinationPath: string,
+  maxLines?: number,
+  extraContext?: string,
+) {
+  return invoke<LogsExportResponse>("logs_export_support_bundle", {
+    destinationPath,
+    maxLines,
+    extraContext,
+  });
 }

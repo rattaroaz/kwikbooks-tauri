@@ -42,6 +42,7 @@ export function InvoiceDetailPage() {
       if (seq !== loadSeq.current) {
         return;
       }
+      setData(null);
       setLoadError("Could not load this invoice.");
       pushApiError(e, logContext(PAGE, "load"));
     }
@@ -54,10 +55,11 @@ export function InvoiceDetailPage() {
   if (loadError) {
     return (
       <div className="kb-page">
-        <p className="kb-error-text">{loadError}</p>
         <p>
           <Link to="/invoices">← Invoices</Link>
         </p>
+        <h1>Invoice</h1>
+        <p className="kb-error-text">{loadError}</p>
       </div>
     );
   }

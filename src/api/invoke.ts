@@ -2,6 +2,7 @@ import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { debug, warn } from "@tauri-apps/plugin-log";
 import { env } from "../config/env";
 import { createRequestId, setLastRequestId } from "../lib/correlation";
+import { recordBreadcrumb } from "../lib/diagnostics";
 import { summarizeInvokePayload } from "../lib/logRedact";
 
 const ERR_LOG_MAX = 500;
@@ -31,6 +32,7 @@ export async function invoke<T>(
   await setIpcContext(rid);
   const start = performance.now();
   const threshold = env.slowIpcMs;
+  recordBreadcrumb("ipc", `→ ${cmd} rid=${rid}`);
 
   if (env.verboseIpc) {
     if (args !== undefined) {
@@ -47,6 +49,7 @@ export async function invoke<T>(
         ? await tauriInvoke<T>(cmd)
         : await tauriInvoke<T>(cmd, args);
     const ms = Math.round(performance.now() - start);
+    recordBreadcrumb("ipc", `← ${cmd} ok ${ms}ms rid=${rid}`);
     if (env.verboseIpc) {
       await debug(`[ipc←] rid=${rid} ${cmd} ok ${ms}ms`);
     }
@@ -59,6 +62,7 @@ export async function invoke<T>(
   } catch (e) {
     const ms = Math.round(performance.now() - start);
     const msg = truncateErr(e instanceof Error ? e.message : String(e));
+    recordBreadcrumb("ipc", `← ${cmd} err ${ms}ms rid=${rid}`);
     await warn(`[ipc←] rid=${rid} ${cmd} err ${ms}ms ${msg}`);
     throw e;
   }

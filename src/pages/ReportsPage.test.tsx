@@ -43,7 +43,9 @@ describe("ReportsPage", () => {
     renderWithApp(<ReportsPage />);
     fireEvent.click(screen.getByRole("button", { name: "AR summary" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Load AR (open balances)" }),
+      screen.getByRole("button", {
+        name: "Load AR (posted invoices − payments)",
+      }),
     );
     await waitFor(() => {
       expect(api.reportArOpen).toHaveBeenCalled();

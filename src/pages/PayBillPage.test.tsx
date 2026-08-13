@@ -9,6 +9,8 @@ vi.mock("../api/tauri", () => ({
   listVendors: vi.fn(),
   accountList: vi.fn(),
   vendorPaymentCreate: vi.fn(),
+  vendorPaymentPost: vi.fn(),
+  vendorPaymentDeleteUnposted: vi.fn(),
 }));
 
 describe("PayBillPage", () => {

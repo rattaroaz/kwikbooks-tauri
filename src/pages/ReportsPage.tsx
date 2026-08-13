@@ -5,11 +5,8 @@ import { downloadTextFile, rowsToCsv } from "../lib/csv";
 import { todayISODate } from "../lib/dates";
 import { formatMoneyMinor, sumMinor } from "../lib/money";
 import { logContext } from "../lib/logContext";
+import { requireValidISODate, requireValidISODateRange } from "../lib/validateDate";
 import { useToast } from "../context/ToastContext";
-import {
-  requireValidISODate,
-  requireValidISODateRange,
-} from "../lib/validateDate";
 
 type Tab = "pl" | "bs" | "tb" | "ar" | "ap" | "gl";
 
@@ -435,7 +432,7 @@ export function ReportsPage() {
       {tab === "ar" && (
         <section className="kb-report">
           <button type="button" onClick={() => void loadAr()}>
-            Load AR (open balances)
+            Load AR (posted invoices − payments)
           </button>
           <button type="button" onClick={csvAr} disabled={!ar}>
             Export CSV
@@ -464,7 +461,7 @@ export function ReportsPage() {
       {tab === "ap" && (
         <section className="kb-report">
           <button type="button" onClick={() => void loadAp()}>
-            Load AP (open bills)
+            Load AP (posted bills − payments)
           </button>
           {ap && (
             <table className="kb-table">

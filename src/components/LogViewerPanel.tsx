@@ -1,6 +1,12 @@
+import { save } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as api from "../api/tauri";
 import type { LogLine } from "../api/tauri";
+import {
+  diagnosticsHeader,
+  formatBreadcrumbsForLog,
+  getBreadcrumbs,
+} from "../lib/diagnostics";
 import {
   filterLogLines,
   LOG_LEVEL_LABELS,
@@ -11,17 +17,20 @@ import {
   filterLogLinesBySearch,
   sortLogLinesByTimestamp,
 } from "../lib/logParse";
-import { reportError } from "../lib/reportError";
 import { logContext } from "../lib/logContext";
+import { createScopedLogger } from "../lib/logger";
+import { reportError } from "../lib/reportError";
 
 type Props = {
   onClose: () => void;
 };
 
 const POLL_MS = 3_000;
+const log = createScopedLogger("LogViewer");
 
 function formatLine({ source, line }: LogLine): string {
-  const tag = source === "webview" ? "webview" : "app";
+  const tag =
+    source === "webview" ? "webview" : source === "panic" ? "panic" : "app";
   return `[${tag}] ${line}`;
 }
 
@@ -32,6 +41,7 @@ export function LogViewerPanel({ onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [levelFilter, setLevelFilter] = useState<LogLevelFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
 
@@ -93,6 +103,45 @@ export function LogViewerPanel({ onClose }: Props) {
     stickToBottomRef.current = nearBottom;
   };
 
+  async function onCopy() {
+    const text = visibleLines.map(formatLine).join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setError(null);
+      setStatus(`Copied ${visibleLines.length} line(s)`);
+      void log.info("copied visible log lines to clipboard");
+    } catch (e) {
+      setStatus(null);
+      reportError(logContext("LogViewerPanel", "copy"), e, setError);
+    }
+  }
+
+  async function onExport() {
+    try {
+      const dest = await save({
+        title: "Export support bundle",
+        defaultPath: `kwikbooks-support-${new Date().toISOString().slice(0, 10)}.txt`,
+        filters: [{ name: "Text", extensions: ["txt"] }],
+      });
+      if (dest === null) {
+        return;
+      }
+      const res = await api.logsExportSupportBundle(
+        dest,
+        5000,
+        `${diagnosticsHeader()}\nbreadcrumbs:\n${formatBreadcrumbsForLog(getBreadcrumbs())}`,
+      );
+      setError(null);
+      setStatus(
+        `Exported ${res.lineCount} line(s) (${res.bytesWritten} bytes, paths redacted)`,
+      );
+      void log.info(`exported support bundle lines=${res.lineCount}`);
+    } catch (e) {
+      setStatus(null);
+      reportError(logContext("LogViewerPanel", "export"), e, setError);
+    }
+  }
+
   return (
     <aside
       className="kb-logs-panel"
@@ -110,6 +159,23 @@ export function LogViewerPanel({ onClose }: Props) {
           ) : null}
         </div>
         <div className="kb-logs-actions">
+          <button
+            type="button"
+            className="kb-button-secondary"
+            data-testid="logs-copy"
+            disabled={visibleLines.length === 0}
+            onClick={() => void onCopy()}
+          >
+            Copy
+          </button>
+          <button
+            type="button"
+            className="kb-button-secondary"
+            data-testid="logs-export"
+            onClick={() => void onExport()}
+          >
+            Export…
+          </button>
           <button
             type="button"
             className="kb-button-secondary"
@@ -168,6 +234,11 @@ export function LogViewerPanel({ onClose }: Props) {
       {error ? (
         <p className="kb-logs-error" data-testid="logs-error">
           {error}
+        </p>
+      ) : null}
+      {status ? (
+        <p className="kb-muted" data-testid="logs-status">
+          {status}
         </p>
       ) : null}
 

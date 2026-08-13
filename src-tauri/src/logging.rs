@@ -62,7 +62,7 @@ fn json_logs_enabled() -> bool {
 pub fn log_plugin<R: Runtime>() -> TauriPlugin<R> {
     let mut b = Builder::new()
         .level(max_level_from_env())
-        .rotation_strategy(RotationStrategy::KeepOne)
+        .rotation_strategy(RotationStrategy::KeepAll)
         .max_file_size(5_242_880)
         .level_for("tao", LevelFilter::Warn)
         .level_for("tauri", LevelFilter::Warn)

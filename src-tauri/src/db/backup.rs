@@ -4,12 +4,19 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 
 use rusqlite::{Connection, OpenFlags};
 
 use super::error::DbCommandError;
 use super::migrate::{current_version, run_all_on_connection};
 use super::open_sqlite;
+
+/// Serializes backup/restore against other restore operations (file swap safety).
+fn restore_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
 
 fn wal_sidecar(main: &Path, tag: &str) -> PathBuf {
     let mut s = main.as_os_str().to_owned();
@@ -45,13 +52,28 @@ pub fn vacuum_backup_database(live_path: &Path, destination: &Path) -> Result<()
     if let Some(parent) = destination.parent() {
         fs::create_dir_all(parent)?;
     }
-    if destination.exists() {
-        fs::remove_file(destination)?;
+    // Write to a temp file first so a failed VACUUM never deletes an existing backup.
+    let tmp = destination.with_extension("sqlite.tmp");
+    if tmp.exists() {
+        fs::remove_file(&tmp).map_err(|e| DbCommandError::PathResolution {
+            message: e.to_string(),
+        })?;
     }
     conn.execute(
         "VACUUM INTO ?1",
-        rusqlite::params![destination.to_string_lossy().as_ref()],
+        rusqlite::params![tmp.to_string_lossy().as_ref()],
     )?;
+    if destination.exists() {
+        fs::remove_file(destination).map_err(|e| DbCommandError::PathResolution {
+            message: e.to_string(),
+        })?;
+    }
+    fs::rename(&tmp, destination).map_err(|e| {
+        let _ = fs::remove_file(&tmp);
+        DbCommandError::PathResolution {
+            message: e.to_string(),
+        }
+    })?;
     log::info!(
         target: "kwikbooks_lib::db",
         "vacuum_backup_completed dest={}",
@@ -61,6 +83,8 @@ pub fn vacuum_backup_database(live_path: &Path, destination: &Path) -> Result<()
 }
 
 pub fn restore_database_from_path(backup_path: &Path, live_path: &Path) -> Result<(), DbCommandError> {
+    let _guard = restore_lock().lock().unwrap_or_else(|e| e.into_inner());
+
     let version = validate_kwkb_backup(backup_path)?;
     if version < 1 {
         return Err(DbCommandError::Validation {
@@ -80,7 +104,29 @@ pub fn restore_database_from_path(backup_path: &Path, live_path: &Path) -> Resul
         }
     }
 
-    if live_path.exists() {
+    if let Some(parent) = live_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| DbCommandError::PathResolution {
+            message: e.to_string(),
+        })?;
+    }
+
+    // Stage restore into a sibling temp file, migrate there, then swap.
+    let staged = live_path.with_extension("restore.tmp.sqlite");
+    if staged.exists() {
+        fs::remove_file(&staged).map_err(|e| DbCommandError::PathResolution {
+            message: e.to_string(),
+        })?;
+    }
+    fs::copy(backup_path, &staged).map_err(|e| DbCommandError::PathResolution {
+        message: e.to_string(),
+    })?;
+
+    {
+        let mut conn = open_sqlite(&staged)?;
+        run_all_on_connection(&mut conn)?;
+    }
+
+    let previous = if live_path.exists() {
         {
             let live_conn = open_sqlite(live_path)?;
             live_conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
@@ -88,16 +134,36 @@ pub fn restore_database_from_path(backup_path: &Path, live_path: &Path) -> Resul
         for tag in ["-wal", "-shm"] {
             let _ = fs::remove_file(wal_sidecar(live_path, tag));
         }
-    } else if let Some(parent) = live_path.parent() {
-        fs::create_dir_all(parent)?;
+        let bak = live_path.with_extension("pre-restore.bak.sqlite");
+        if bak.exists() {
+            let _ = fs::remove_file(&bak);
+        }
+        fs::rename(live_path, &bak).map_err(|e| DbCommandError::PathResolution {
+            message: e.to_string(),
+        })?;
+        Some(bak)
+    } else {
+        None
+    };
+
+    if let Err(e) = fs::rename(&staged, live_path) {
+        if let Some(bak) = previous.as_ref() {
+            let _ = fs::rename(bak, live_path);
+        }
+        let _ = fs::remove_file(&staged);
+        return Err(DbCommandError::PathResolution {
+            message: e.to_string(),
+        });
     }
 
-    fs::copy(backup_path, live_path).map_err(|e| DbCommandError::PathResolution {
-        message: e.to_string(),
-    })?;
+    // Drop previous live snapshot after successful swap.
+    if let Some(bak) = previous {
+        let _ = fs::remove_file(bak);
+    }
+    for tag in ["-wal", "-shm"] {
+        let _ = fs::remove_file(wal_sidecar(&staged, tag));
+    }
 
-    let mut conn = open_sqlite(live_path)?;
-    run_all_on_connection(&mut conn)?;
     log::warn!(
         target: "kwikbooks_lib::db",
         "restore_completed backup={} live={}",
@@ -139,6 +205,23 @@ mod tests {
                 .unwrap()
         };
         assert_eq!(ct, 1);
+    }
+
+    #[test]
+    fn vacuum_preserves_existing_dest_on_failure() {
+        let dir = tempdir().expect("tmp");
+        let live = dir.path().join("live.sqlite");
+        let bak = dir.path().join("copy.sqlite");
+        {
+            let mut conn = open_sqlite(&live).expect("open");
+            run_all_on_connection(&mut conn).expect("migrate");
+        }
+        vacuum_backup_database(&live, &bak).expect("first");
+        let size = fs::metadata(&bak).unwrap().len();
+        assert!(size > 0);
+        // Overwrite with another successful vacuum — dest must still exist afterward.
+        vacuum_backup_database(&live, &bak).expect("second");
+        assert!(bak.exists());
     }
 
     #[test]

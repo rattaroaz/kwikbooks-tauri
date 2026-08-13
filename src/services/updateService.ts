@@ -3,6 +3,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { APP_NAME, APP_VERSION } from "../lib/constants";
 import { isVersionNewer } from "../lib/semver";
 import { createScopedLogger } from "../lib/logger";
+import { captureException } from "../config/telemetry";
 import {
   closeUpdateDialog,
   openUpdateDialog,
@@ -17,6 +18,11 @@ const UPDATE_FEED_UNAVAILABLE_MESSAGE =
   "Set repository secrets TAURI_SIGNING_PRIVATE_KEY and " +
   "TAURI_SIGNING_PRIVATE_KEY_PASSWORD, then push a tag to run the Release workflow.";
 
+const ARM64_FEED_MISSING_MESSAGE =
+  "The current GitHub release feed does not include a Windows ARM64 update. " +
+  "Download the *_arm64-setup.exe installer from GitHub Releases, or publish a " +
+  "new release after both x64 and ARM64 Release workflow jobs succeed.";
+
 function upToDateMessage(): string {
   return `${APP_NAME} is up to date (version ${APP_VERSION}).`;
 }
@@ -29,6 +35,11 @@ function isUpdateFeedUnavailable(message: string): boolean {
     m.includes("404") ||
     m.includes("not found")
   );
+}
+
+function isArm64PlatformMissing(message: string): boolean {
+  const m = message.toLowerCase();
+  return m.includes("fallback platforms") && m.includes("windows-aarch64");
 }
 
 function errorMessage(err: unknown): string {
@@ -91,7 +102,17 @@ export async function checkForUpdatesAndApply(): Promise<void> {
       });
       return;
     }
+    if (isArm64PlatformMissing(msg)) {
+      void log.warn("arm64 platform missing from release feed");
+      captureException(err, "Update.arm64FeedMissing");
+      setUpdateDialog({
+        phase: "error",
+        message: ARM64_FEED_MISSING_MESSAGE,
+      });
+      return;
+    }
     void log.error(`check failed: ${msg}`);
+    captureException(err, "Update.checkFailed");
     setUpdateDialog({ phase: "error", message: msg });
   }
 }

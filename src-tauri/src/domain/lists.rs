@@ -246,3 +246,73 @@ pub fn bill_get(conn: &Connection, bill_id: i64) -> Result<serde_json::Value, Db
         "lines": lines,
     }))
 }
+
+pub fn vendor_payments_list(conn: &Connection) -> Result<Vec<serde_json::Value>, DbCommandError> {
+    let mut stmt = conn.prepare(
+        r#"SELECT vp.id, vp.vendor_id, v.display_name, vp.bank_account_id, vp.payment_date,
+                  vp.amount_minor, vp.memo, vp.bill_id, vp.journal_id,
+                  vp.check_number, vp.payment_method, vp.payee_name, vp.check_printed_at
+           FROM vendor_payment vp
+           JOIN vendor v ON v.id = vp.vendor_id
+           WHERE vp.company_id = ?1
+           ORDER BY vp.payment_date DESC, vp.id DESC"#,
+    )?;
+    let rows = stmt.query_map([COMPANY_ID], |row| {
+        Ok(serde_json::json!({
+            "id": row.get::<_, i64>(0)?,
+            "vendorId": row.get::<_, i64>(1)?,
+            "vendorName": row.get::<_, String>(2)?,
+            "bankAccountId": row.get::<_, i64>(3)?,
+            "paymentDate": row.get::<_, String>(4)?,
+            "amountMinor": row.get::<_, i64>(5)?,
+            "memo": row.get::<_, Option<String>>(6)?,
+            "billId": row.get::<_, Option<i64>>(7)?,
+            "journalId": row.get::<_, Option<i64>>(8)?,
+            "checkNumber": row.get::<_, Option<String>>(9)?,
+            "paymentMethod": row.get::<_, String>(10)?,
+            "payeeName": row.get::<_, Option<String>>(11)?,
+            "checkPrintedAt": row.get::<_, Option<String>>(12)?,
+        }))
+    })?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}
+
+pub fn vendor_payment_get(conn: &Connection, payment_id: i64) -> Result<serde_json::Value, DbCommandError> {
+    conn.query_row(
+        r#"SELECT vp.id, vp.vendor_id, v.display_name, vp.bank_account_id, a.code, a.name,
+                  vp.payment_date, vp.amount_minor, vp.memo, vp.bill_id, vp.journal_id,
+                  vp.check_number, vp.payment_method, vp.payee_name, vp.check_printed_at
+           FROM vendor_payment vp
+           JOIN vendor v ON v.id = vp.vendor_id
+           JOIN account a ON a.id = vp.bank_account_id
+           WHERE vp.id = ?1 AND vp.company_id = ?2"#,
+        rusqlite::params![payment_id, COMPANY_ID],
+        |row| {
+            Ok(serde_json::json!({
+                "id": row.get::<_, i64>(0)?,
+                "vendorId": row.get::<_, i64>(1)?,
+                "vendorName": row.get::<_, String>(2)?,
+                "bankAccountId": row.get::<_, i64>(3)?,
+                "bankAccountCode": row.get::<_, String>(4)?,
+                "bankAccountName": row.get::<_, String>(5)?,
+                "paymentDate": row.get::<_, String>(6)?,
+                "amountMinor": row.get::<_, i64>(7)?,
+                "memo": row.get::<_, Option<String>>(8)?,
+                "billId": row.get::<_, Option<i64>>(9)?,
+                "journalId": row.get::<_, Option<i64>>(10)?,
+                "checkNumber": row.get::<_, Option<String>>(11)?,
+                "paymentMethod": row.get::<_, String>(12)?,
+                "payeeName": row.get::<_, Option<String>>(13)?,
+                "checkPrintedAt": row.get::<_, Option<String>>(14)?,
+            }))
+        },
+    )
+    .map_err(|_| DbCommandError::NotFound {
+        entity: "vendor_payment".into(),
+        id: payment_id,
+    })
+}

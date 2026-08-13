@@ -1,13 +1,25 @@
 /**
- * Telemetry / crash pipeline is **disabled by default** (local desktop app).
- * `captureException` always writes to host logs; set `VITE_TELEMETRY=true` only
- * after wiring a remote collector (not implemented in v1).
+ * Offline exception capture — always writes to host log files via plugin-log.
+ * Never transmits data off-device. `VITE_DIAGNOSTICS` (or legacy `VITE_TELEMETRY`)
+ * attaches breadcrumbs + app meta to each capture for richer local support.
  */
 import { error as hostError } from "@tauri-apps/plugin-log";
 import { env } from "./env";
+import {
+  diagnosticsHeader,
+  formatBreadcrumbsForLog,
+  getBreadcrumbs,
+  recordBreadcrumb,
+} from "../lib/diagnostics";
 
+/** True when verbose local diagnostics (breadcrumbs on capture) are enabled. */
+export function diagnosticsEnabled(): boolean {
+  return env.diagnostics;
+}
+
+/** @deprecated Use {@link diagnosticsEnabled} — alias for older call sites/tests. */
 export function telemetryEnabled(): boolean {
-  return env.telemetry;
+  return diagnosticsEnabled();
 }
 
 function formatUnknown(error: unknown): string {
@@ -17,15 +29,22 @@ function formatUnknown(error: unknown): string {
   return String(error);
 }
 
-/** Reserved for opt-in error reporting — does not transmit anything in v1. */
+/** Always logs to the host. Offline-only; no remote collector. */
 export function captureException(error: unknown, context?: string): void {
   const formatted = formatUnknown(error);
-  const message =
-    context !== undefined ? `${context}: ${formatted}` : formatted;
+  const ctx = context ?? "exception";
+  recordBreadcrumb("exception", `${ctx}: ${formatted.split("\n")[0] ?? ""}`);
 
+  const parts = [`${ctx}: ${formatted}`];
+  if (diagnosticsEnabled()) {
+    parts.push(`meta ${diagnosticsHeader()}`);
+    parts.push(`breadcrumbs:\n${formatBreadcrumbsForLog(getBreadcrumbs())}`);
+  }
+
+  const message = parts.join("\n");
   void hostError(message).catch(() => undefined);
 
-  if (!telemetryEnabled() && env.isDev && context !== undefined) {
-    console.debug(`[telemetry off] ${context}`, error);
+  if (env.isDev && context !== undefined) {
+    console.debug(`[diagnostics] ${context}`, error);
   }
 }

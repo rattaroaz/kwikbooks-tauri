@@ -9,6 +9,8 @@ vi.mock("../api/tauri", () => ({
   listCustomers: vi.fn(),
   accountList: vi.fn(),
   customerPaymentCreate: vi.fn(),
+  customerPaymentPost: vi.fn(),
+  customerPaymentDeleteUnposted: vi.fn(),
 }));
 
 describe("ReceivePaymentPage", () => {
@@ -21,6 +23,8 @@ describe("ReceivePaymentPage", () => {
       { id: 10, code: "1000", name: "Cash", isBankCash: true },
     ]);
     vi.mocked(api.customerPaymentCreate).mockResolvedValue(99);
+    vi.mocked(api.customerPaymentPost).mockResolvedValue(1);
+    vi.mocked(api.customerPaymentDeleteUnposted).mockResolvedValue(undefined);
   });
 
   async function ready() {

@@ -99,6 +99,10 @@ export function BillNewPage() {
   return (
     <div className="kb-page">
       <h1>New bill</h1>
+      <p className="kb-muted">
+        Payee-only bills can be saved as drafts, but a vendor is required before
+        posting to accounts payable.
+      </p>
       <form className="kb-form kb-form-stack" onSubmit={onSubmit}>
         <label>
           Vendor (optional)

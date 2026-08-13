@@ -53,6 +53,10 @@ test("settings backup and restore actions complete", async ({ page }) => {
   await page.evaluate(() => {
     window.confirm = () => true;
   });
-  await page.getByTestId("settings-restore").click();
-  await expect(page.getByText(/Database restored/i)).toBeVisible();
+  // Restore applies then reloads; toast is cleared by the reload.
+  await Promise.all([
+    page.waitForEvent("load"),
+    page.getByTestId("settings-restore").click(),
+  ]);
+  await expect(page.getByTestId("settings-restore")).toBeVisible();
 });

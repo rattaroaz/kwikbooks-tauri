@@ -11,7 +11,14 @@ vi.mock("@tauri-apps/api/core", () => ({
 vi.mock("./api/db", () => ({
   dbInit: vi.fn(() => Promise.resolve({ dbPath: "/x", migrationVersion: 1 })),
   healthPing: vi.fn(() =>
-    Promise.resolve({ ok: true, sqliteOk: true, migrationVersion: 1 }),
+    Promise.resolve({
+      ok: true,
+      sqliteOk: true,
+      migrationVersion: 1,
+      appVersion: "0.0.0-test",
+      logLevel: "Debug",
+      slowIpcMs: 1500,
+    }),
   ),
 }));
 
