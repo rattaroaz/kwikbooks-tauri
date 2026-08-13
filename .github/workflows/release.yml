@@ -17,7 +17,8 @@ jobs:
   build-windows:
     name: build-windows (${{ matrix.arch }})
     strategy:
-      fail-fast: true
+      # Both arches must run; cancelling a sibling leaves an incomplete GitHub Release.
+      fail-fast: false
       matrix:
         include:
           - arch: x64
